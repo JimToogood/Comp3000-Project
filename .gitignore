@@ -1,0 +1,5 @@
+# Ignore macOS system files
+.DS_Store
+
+# Ignore the lld file inside Unity's Library/PackageCache structure
+Library/PackageCache/**/lld
