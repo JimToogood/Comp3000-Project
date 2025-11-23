@@ -1,5 +1,26 @@
 # Ignore macOS system files
 .DS_Store
 
-# Ignore the lld file inside Unity's Library/PackageCache structure
-Library/PackageCache/**/lld
+# Standard Unity project gitignore settings
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+UserSettings/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
