@@ -2,29 +2,101 @@ using UnityEngine;
 
 public class TileSpawner : MonoBehaviour {
     public GameObject tilePrefab;
-    private Texture2D[] tileFaces;
+    private int nextTileID = 0;
 
     void Start() {
-        // Load all tile face textures from folder
-        tileFaces = Resources.LoadAll<Texture2D>("tile_faces");
+        SpawnSuit(TileSuit.Bamboo, 0);
+        SpawnSuit(TileSuit.Characters, 4);
+        SpawnSuit(TileSuit.Dots, 8);
 
-        // Spawn all tiles
-        int i = 0;
-        for (int row = 0; row < (tileFaces.Length / 9.0f); row++) {
-            for (int column = 0; column < 9; column++) {
-                if (i > tileFaces.Length - 1) {
-                    break;
-                }
+        SpawnDragons(12);
+        SpawnWinds(16);
+    }
 
-                SpawnTile(tileFaces[i], new Vector3(3 * column, 0.5f, 4 * row));
-                i++;
+    private void SpawnSuit(TileSuit suit, int rowOffset) {
+        // Spawn tiles 1-9 in given suit (x4)
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 4; j++) {
+                // Generate tile class
+                MahjongTile tile = new MahjongTile{
+                    id = nextTileID,
+                    suit = suit,
+                    number = i + 1,
+                    wind = WindType.None,
+                    dragon = DragonType.None
+                };
+                nextTileID++;
+
+                // Calculate tile position
+                Vector3 pos = new Vector3(
+                    3 * i,
+                    0.5f + j,
+                    rowOffset
+                );
+
+                // Spawn tile
+                SpawnTile(tile, pos);
             }
         }
     }
 
-    void SpawnTile(Texture2D faceTexture, Vector3 pos) {
+    private void SpawnDragons(int rowOffset) {
+        // Spawn all 3 dragons (x4)
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 4; j++) {
+                // Generate tile class
+                MahjongTile tile = new MahjongTile{
+                    id = nextTileID,
+                    suit = TileSuit.Dragons,
+                    number = 0,
+                    wind = WindType.None,
+                    dragon = (DragonType)i + 1
+                };
+                nextTileID++;
+
+                // Calculate tile position
+                Vector3 pos = new Vector3(
+                    3 * i,
+                    0.5f + j,
+                    rowOffset
+                );
+
+                // Spawn tile
+                SpawnTile(tile, pos);
+            }
+        }
+    }
+    
+    private void SpawnWinds(int rowOffset) {
+        // Spawn all 4 winds (x4)
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                // Generate tile class
+                MahjongTile tile = new MahjongTile{
+                    id = nextTileID,
+                    suit = TileSuit.Winds,
+                    number = 0,
+                    wind = (WindType)i + 1,
+                    dragon = DragonType.None
+                };
+                nextTileID++;
+
+                // Calculate tile position
+                Vector3 pos = new Vector3(
+                    3 * i,
+                    0.5f + j,
+                    rowOffset
+                );
+
+                // Spawn tile
+                SpawnTile(tile, pos);
+            }
+        }
+    }
+
+    private void SpawnTile(MahjongTile tileData, Vector3 pos) {
         var tileObject = Instantiate(tilePrefab, pos, Quaternion.identity);
-        var tile = tileObject.GetComponent<Tile>();
-        tile.SetFaceTexture(faceTexture);
+        var tileView = tileObject.GetComponent<TileView>();
+        tileView.SetTile(tileData);
     }
 }
