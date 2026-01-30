@@ -1,102 +1,69 @@
 using UnityEngine;
+using System.Collections.Generic;
 
-public class TileSpawner : MonoBehaviour {
-    public GameObject tilePrefab;
-    private int nextTileID = 0;
+public static class TileSpawner {
+    public static List<MahjongTile> CreateFullTileSet() {
+        List<MahjongTile> tiles = new();
+        int nextTileID = 0;
+        
+        CreateSuit(TileSuit.Bamboo, tiles, ref nextTileID);
+        CreateSuit(TileSuit.Characters, tiles, ref nextTileID);
+        CreateSuit(TileSuit.Dots, tiles, ref nextTileID);
 
-    void Start() {
-        SpawnSuit(TileSuit.Bamboo, 0);
-        SpawnSuit(TileSuit.Characters, 4);
-        SpawnSuit(TileSuit.Dots, 8);
+        CreateDragons(tiles, ref nextTileID);
+        CreateWinds(tiles, ref nextTileID);
 
-        SpawnDragons(12);
-        SpawnWinds(16);
+        return tiles;
     }
 
-    private void SpawnSuit(TileSuit suit, int rowOffset) {
+    private static void CreateSuit(TileSuit suit, List<MahjongTile> tiles, ref int nextTileID) {
         // Spawn tiles 1-9 in given suit (x4)
         for (int i = 0; i < 9; i++) {
             for (int j = 0; j < 4; j++) {
-                // Generate tile class
-                MahjongTile tile = new MahjongTile{
+                // Add tile to list
+                tiles.Add(new MahjongTile{
                     id = nextTileID,
                     suit = suit,
                     number = i + 1,
                     wind = WindType.None,
                     dragon = DragonType.None
-                };
+                });
                 nextTileID++;
-
-                // Calculate tile position
-                Vector3 pos = new Vector3(
-                    3 * i,
-                    0.5f + j,
-                    rowOffset
-                );
-
-                // Spawn tile
-                SpawnTile(tile, pos);
             }
         }
     }
 
-    private void SpawnDragons(int rowOffset) {
+    private static void CreateDragons(List<MahjongTile> tiles, ref int nextTileID) {
         // Spawn all 3 dragons (x4)
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 4; j++) {
-                // Generate tile class
-                MahjongTile tile = new MahjongTile{
+                // Add tile to list
+                tiles.Add(new MahjongTile{
                     id = nextTileID,
                     suit = TileSuit.Dragons,
                     number = 0,
                     wind = WindType.None,
                     dragon = (DragonType)i + 1
-                };
+                });
                 nextTileID++;
-
-                // Calculate tile position
-                Vector3 pos = new Vector3(
-                    3 * i,
-                    0.5f + j,
-                    rowOffset
-                );
-
-                // Spawn tile
-                SpawnTile(tile, pos);
             }
         }
     }
     
-    private void SpawnWinds(int rowOffset) {
+    private static void CreateWinds(List<MahjongTile> tiles, ref int nextTileID) {
         // Spawn all 4 winds (x4)
         for (int i = 0; i < 4; i++) {
             for (int j = 0; j < 4; j++) {
-                // Generate tile class
-                MahjongTile tile = new MahjongTile{
+                // Add tile to list
+                tiles.Add(new MahjongTile{
                     id = nextTileID,
                     suit = TileSuit.Winds,
                     number = 0,
                     wind = (WindType)i + 1,
                     dragon = DragonType.None
-                };
+                });
                 nextTileID++;
-
-                // Calculate tile position
-                Vector3 pos = new Vector3(
-                    3 * i,
-                    0.5f + j,
-                    rowOffset
-                );
-
-                // Spawn tile
-                SpawnTile(tile, pos);
             }
         }
-    }
-
-    private void SpawnTile(MahjongTile tileData, Vector3 pos) {
-        var tileObject = Instantiate(tilePrefab, pos, Quaternion.identity);
-        var tileView = tileObject.GetComponent<TileView>();
-        tileView.SetTile(tileData);
     }
 }
