@@ -101,6 +101,7 @@ GameObject:
   - component: {fileID: 6405023344589817176}
   - component: {fileID: 9153497532184965522}
   - component: {fileID: 6810457246566497825}
+  - component: {fileID: -5589237776530899895}
   m_Layer: 0
   m_Name: Tile
   m_TagString: Untagged
@@ -193,3 +194,30 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Tile
   faceRenderer: {fileID: 1550614629267503736}
+  tileData:
+    id: 0
+    suit: 0
+    number: 0
+    wind: 0
+    dragon: 0
+--- !u!65 &-5589237776530899895
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7207797838974226503}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 2, y: 1.0000001, z: 3}
+  m_Center: {x: 0, y: 0, z: 0}

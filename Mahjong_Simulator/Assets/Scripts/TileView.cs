@@ -6,10 +6,7 @@ public class TileView : MonoBehaviour {
 
     public void SetTile(MahjongTile tile) {
         tileData = tile;
-        UpdateTexture();
-    }
 
-    private void UpdateTexture() {
         string textureName = GetTextureName(tileData);
         Texture2D tex = Resources.Load<Texture2D>($"tile_faces/{textureName}");
 
@@ -17,12 +14,11 @@ public class TileView : MonoBehaviour {
             Debug.LogError($"Failed to load texture: {textureName}");
             return;
         }
-
-        SetFaceTexture(tex);
+        faceRenderer.material.mainTexture = tex;
     }
 
-    private void SetFaceTexture(Texture2D faceTexture) {
-        faceRenderer.material.mainTexture = faceTexture;
+    public void OnMouseDown() {
+        GameManager.Instance.OnTileClicked(this);
     }
 
     private static string GetTextureName(MahjongTile tile) {
