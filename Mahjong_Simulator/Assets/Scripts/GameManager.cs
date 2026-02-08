@@ -5,7 +5,8 @@ public class GameManager : MonoBehaviour {
     public static GameManager Instance { get; private set; }
     void Awake() { Instance = this; }
 
-    public GameObject tilePrefab;
+    [SerializeField] public GameObject tilePrefab;
+    [SerializeField] public Transform tileParent;
 
     private Dictionary<MahjongTile, TileView> tileViews;
     private List<Player> players;
@@ -123,9 +124,14 @@ public class GameManager : MonoBehaviour {
     }
 
     private void SpawnTile(MahjongTile tile, Vector3 pos, Quaternion rot) {
-        var tileObject = Instantiate(tilePrefab, pos, rot);
-        var tileView = tileObject.GetComponent<TileView>();
+        // Spawn tile as child of tileParent
+        var tileObject = Instantiate(tilePrefab, tileParent);
 
+        // Update local pos and rot after instantiation (because Instantiate uses world pos)
+        tileObject.transform.localPosition = pos;
+        tileObject.transform.localRotation = rot;
+
+        var tileView = tileObject.GetComponent<TileView>();
         tileView.SetTile(tile);
         tileViews[tile] = tileView;
     }
