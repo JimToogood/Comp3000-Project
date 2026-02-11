@@ -1,21 +1,38 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
+public struct SeatLayout {
+    public Vector3 basePos;
+    public Vector3 tileDirection;
+    public Quaternion rotation;
+}
+
+
 public class GameManager : MonoBehaviour {
+    // Set instance so game manager can be called in other classes
     public static GameManager Instance { get; private set; }
     void Awake() { Instance = this; }
 
     [SerializeField] public GameObject tilePrefab;
     [SerializeField] public Transform tileParent;
+    [SerializeField] public Camera mainCamera;
 
     private Dictionary<MahjongTile, TileView> tileViews;
     private List<Player> players;
     private Queue<MahjongTile> wall;
+    private Vector3 cameraBasePos;
+    private float cameraBaseTilt;
 
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
+    
 
     void Start() {
+        // Get camera base position
+        cameraBasePos = mainCamera.transform.position;
+        cameraBaseTilt = mainCamera.transform.eulerAngles.x;
+
         // Create tiles and shuffle
         List<MahjongTile> tiles = TileSpawner.CreateFullTileSet();
         Shuffle(tiles);
@@ -45,15 +62,16 @@ public class GameManager : MonoBehaviour {
 
         // Spawn tiles
         for (int i = 0; i < players.Count; i++) {
-            SpawnHand(players[i].hand, i);
+            SpawnHand(players[i].hand, players[i].seat);
         }
-        SpawnWall(wall, players.Count);
+        SpawnWall(wall);
 
         // Start first turn
         StartTurn();
     }
 
     private void StartTurn() {
+        StartCoroutine(MoveCamera(currentPlayerIndex));
         Debug.Log($"Player {currentPlayerIndex}'s turn begins.");
         waitingForDiscard = true;
     }
@@ -92,7 +110,7 @@ public class GameManager : MonoBehaviour {
         player.hand.Add(newTile);
         
         // Move new tile to where discarded tile was
-        MoveTile(tileViews[newTile], tileViews[tile].transform.position);
+        MoveTile(tileViews[newTile], tileViews[tile].transform.position, tileViews[tile].transform.rotation);
 
         // TODO: Move to discard pile instead of destroying
         Destroy(tileView.gameObject);
@@ -101,25 +119,43 @@ public class GameManager : MonoBehaviour {
         EndTurn();
     }
 
-    private void MoveTile(TileView tileView, Vector3 pos) {
+    private void MoveTile(TileView tileView, Vector3 pos, Quaternion rot) {
         tileView.gameObject.transform.position = pos;
+        tileView.gameObject.transform.rotation = rot;
     }
 
-    private void SpawnHand(List<MahjongTile> hand, int z) {
-        int i = 0;
-        foreach (MahjongTile tile in hand) {
-            Vector3 pos = new Vector3(2.1f * i, 0.5f, 6 * z);
-            SpawnTile(tile, pos, Quaternion.identity);
-            i++;
+    private void SpawnHand(List<MahjongTile> hand, int seat) {
+        SeatLayout layout = GetSeatLayout(seat, 18.0f, 1.0f, true);
+
+        for (int i = 0; i < hand.Count; i++) {
+            float tileOffset = (i - (hand.Count - 1) / 2.0f) * 2.1f;
+            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
+
+            SpawnTile(hand[i], pos, layout.rotation);
         }
     }
 
-    private void SpawnWall(Queue<MahjongTile> wall, int z) {
-        int i = 0;
+    private void SpawnWall(Queue<MahjongTile> wall) {
+        int tilesPerSide = wall.Count / 4;
+
+        int index = 0;
         foreach (MahjongTile tile in wall) {
-            Vector3 pos = new Vector3(2.1f * (i / 7), 0.5f + (1.0f * (i % 7)), 6 * z);
-            SpawnTile(tile, pos, Quaternion.identity);
-            i++;
+            int side = index / tilesPerSide;
+            if (side >= 4) { return; }
+
+            SeatLayout layout = GetSeatLayout(side, 12.7f, 0.0f, false);
+
+            // TODO: Fix issue where each side ends with a single tile instead of a stack of two
+            int i = index % tilesPerSide;
+            int column = i / 2;
+            int stackLevel = 1 - (i % 2);
+
+            float tileOffset = (column - ((tilesPerSide / 2.0f) - 1) / 2.0f) * 2.1f;
+            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
+            pos.y += stackLevel * 1.0f;
+
+            SpawnTile(tile, pos, layout.rotation);
+            index++;
         }
     }
 
@@ -134,6 +170,53 @@ public class GameManager : MonoBehaviour {
         var tileView = tileObject.GetComponent<TileView>();
         tileView.SetTile(tile);
         tileViews[tile] = tileView;
+    }
+
+    private IEnumerator MoveCamera(int seat) {
+        float angle = seat * 90.0f;
+        float time = 0.0f;
+        float duration = 0.5f;
+        
+        Vector3 startPos = mainCamera.transform.position;
+        Quaternion startRot = mainCamera.transform.rotation;
+
+        Vector3 endPos = Quaternion.Euler(0.0f, angle, 0.0f) * cameraBasePos;
+        Quaternion endRot = Quaternion.Euler(cameraBaseTilt, angle + 180.0f, 0.0f);
+
+        while (time < duration) {
+            float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
+
+            mainCamera.transform.position = Vector3.Lerp(startPos, endPos, t);
+            mainCamera.transform.rotation = Quaternion.Slerp(startRot, endRot, t);
+
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        // Snap to pos after movement to avoid drift
+        mainCamera.transform.position = endPos;
+        mainCamera.transform.rotation = endRot;
+    }
+
+    private static SeatLayout GetSeatLayout(int seat, float tableRadius, float height, bool isUpright) {
+        // Get position data needed to spawn hand based on player seat
+        float angle = seat * 90.0f;
+
+        Vector3 basePos = Quaternion.Euler(0.0f, angle, 0.0f) * Vector3.forward * tableRadius;
+        basePos.y = height;
+
+        Quaternion rotation;
+        if (isUpright) {
+            rotation = Quaternion.Euler(-90.0f, angle + 180.0f, 0.0f);  // player hand
+        } else {
+            rotation = Quaternion.Euler(180.0f, angle, 0.0f);           // wall
+        }
+
+        return new SeatLayout {
+            basePos = basePos,
+            tileDirection = Quaternion.Euler(0.0f, angle, 0.0f) * Vector3.right,
+            rotation = rotation
+        };
     }
 
     // Fisher–Yates shuffle
