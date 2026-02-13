@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 public struct SeatLayout {
     public Vector3 basePos;
@@ -23,14 +24,15 @@ public class GameManager : MonoBehaviour {
     private Queue<MahjongTile> wall;
     private Vector3 cameraBasePos;
     private float cameraBaseTilt;
+    private MahjongTile currentDrawnTile;
 
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
-    
 
-    void Start() {
+
+    private void Start() {
         // Get camera base position
-        cameraBasePos = mainCamera.transform.position;
+        cameraBasePos = mainCamera.transform.localPosition;
         cameraBaseTilt = mainCamera.transform.eulerAngles.x;
 
         // Create tiles and shuffle
@@ -72,7 +74,12 @@ public class GameManager : MonoBehaviour {
 
     private void StartTurn() {
         StartCoroutine(MoveCamera(currentPlayerIndex));
-        Debug.Log($"Player {currentPlayerIndex}'s turn begins.");
+        Debug.Log($"Player {currentPlayerIndex} turn begins");
+
+        Player currentPlayer = players[currentPlayerIndex];
+
+        DrawTile(currentPlayer);
+
         waitingForDiscard = true;
     }
 
@@ -83,7 +90,7 @@ public class GameManager : MonoBehaviour {
     }
 
     public void OnTileClicked(TileView tileView) {
-        Debug.Log($"Clicked Tile ID {tileView.tileData.id}");
+        Debug.Log($"Clicked tile {tileView.tileData.id}");
         if (!waitingForDiscard) { return; }
 
         MahjongTile tile = tileView.tileData;
@@ -94,34 +101,47 @@ public class GameManager : MonoBehaviour {
         DiscardTile(currentPlayer, tile, tileView);
     }
 
-    private void DiscardTile(Player player, MahjongTile tile, TileView tileView) {
+    private void DrawTile(Player player) {
         if (wall.Count <= 0) {
             Debug.Log("Wall is empty");
             return;
         }
+   
+        // Get the position for the drawn tile as above the position of the centre hand tile
+        Vector3 drawnTilePos = GetHandCentrePos(player.hand);
+        drawnTilePos.y += 4.25f;
 
+        // Draw next tile from wall and add to player's hand
+        currentDrawnTile = wall.Dequeue();
+        player.hand.Add(currentDrawnTile);
+
+        Debug.Log($"Player {player.seat} draws tile {currentDrawnTile.id}");
+
+        // Move drawn tile to above player's hand
+        StartCoroutine(MoveTile(
+            tileViews[currentDrawnTile], drawnTilePos, tileViews[player.hand[0]].transform.localRotation
+        ));
+    }
+
+    private void DiscardTile(Player player, MahjongTile tile, TileView tileView) {
         Debug.Log($"Player {player.seat} discards tile {tile.id}");
 
         player.hand.Remove(tile);
         player.discards.Add(tile);
 
-        // Draw next tile from wall and add to player's hand
-        MahjongTile newTile = wall.Dequeue();
-        player.hand.Add(newTile);
-        
-        // Move new tile to where discarded tile was
-        MoveTile(tileViews[newTile], tileViews[tile].transform.position, tileViews[tile].transform.rotation);
+        // Move drawn tile to where discarded tile was
+        if (tile != currentDrawnTile) {
+            Debug.Log($"Tile {currentDrawnTile.id} moves to where tile {tile.id} was");
+            StartCoroutine(MoveTile(
+                tileViews[currentDrawnTile], tileViews[tile].transform.localPosition, tileViews[tile].transform.localRotation
+            ));
+        }
 
         // TODO: Move to discard pile instead of destroying
         Destroy(tileView.gameObject);
         waitingForDiscard = false;
 
         EndTurn();
-    }
-
-    private void MoveTile(TileView tileView, Vector3 pos, Quaternion rot) {
-        tileView.gameObject.transform.position = pos;
-        tileView.gameObject.transform.rotation = rot;
     }
 
     private void SpawnHand(List<MahjongTile> hand, int seat) {
@@ -139,23 +159,33 @@ public class GameManager : MonoBehaviour {
         int tilesPerSide = wall.Count / 4;
 
         int index = 0;
-        foreach (MahjongTile tile in wall) {
-            int side = index / tilesPerSide;
-            if (side >= 4) { return; }
+        for (int side = 0; side < 4; side++) {
+            // If tilesPerSide is odd, make one pair of opposite sides have an one extra column to avoid single tiles
+            int columnsPerSide;
+            if (side % 2 == 0) {
+                columnsPerSide = Mathf.CeilToInt(tilesPerSide / 2.0f);
+            } else {
+                columnsPerSide = Mathf.FloorToInt(tilesPerSide / 2.0f);
+            }
 
-            SeatLayout layout = GetSeatLayout(side, 12.7f, 0.0f, false);
+            for (int column = 0; column < columnsPerSide; column++) {
+                // Flip loop to make top tiles be drawn first
+                for (int stack = 1; stack >= 0; stack--) {
+                    if (index >= wall.Count) { return; }
 
-            // TODO: Fix issue where each side ends with a single tile instead of a stack of two
-            int i = index % tilesPerSide;
-            int column = i / 2;
-            int stackLevel = 1 - (i % 2);
+                    // Get tile without removing from queue
+                    MahjongTile tile = wall.ElementAt(index);
 
-            float tileOffset = (column - ((tilesPerSide / 2.0f) - 1) / 2.0f) * 2.1f;
-            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
-            pos.y += stackLevel * 1.0f;
+                    SeatLayout layout = GetSeatLayout(side, 12.1f, 0.0f, false);
 
-            SpawnTile(tile, pos, layout.rotation);
-            index++;
+                    float tileOffset = (column - (columnsPerSide - 1) / 2.0f) * 2.1f;
+                    Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
+                    pos.y += stack;
+
+                    SpawnTile(tile, pos, layout.rotation);
+                    index++;
+                }
+            }
         }
     }
 
@@ -175,27 +205,61 @@ public class GameManager : MonoBehaviour {
     private IEnumerator MoveCamera(int seat) {
         float angle = seat * 90.0f;
         float time = 0.0f;
-        float duration = 0.5f;
+        float duration = 0.6f;
         
-        Vector3 startPos = mainCamera.transform.position;
-        Quaternion startRot = mainCamera.transform.rotation;
+        Vector3 startPos = mainCamera.transform.localPosition;
+        Quaternion startRot = mainCamera.transform.localRotation;
 
         Vector3 endPos = Quaternion.Euler(0.0f, angle, 0.0f) * cameraBasePos;
         Quaternion endRot = Quaternion.Euler(cameraBaseTilt, angle + 180.0f, 0.0f);
 
+        // Animate smooth movement between start and end
         while (time < duration) {
             float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
 
-            mainCamera.transform.position = Vector3.Lerp(startPos, endPos, t);
-            mainCamera.transform.rotation = Quaternion.Slerp(startRot, endRot, t);
+            mainCamera.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
+            mainCamera.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
 
             time += Time.deltaTime;
             yield return null;
         }
 
-        // Snap to pos after movement to avoid drift
-        mainCamera.transform.position = endPos;
-        mainCamera.transform.rotation = endRot;
+        // Snap to end pos after animation to avoid drift
+        mainCamera.transform.localPosition = endPos;
+        mainCamera.transform.localRotation = endRot;
+    }
+
+    private IEnumerator MoveTile(TileView tileView, Vector3 endPos, Quaternion endRot) {
+        float time = 0.0f;
+        float duration = 0.75f;
+
+        Vector3 startPos = tileView.gameObject.transform.localPosition;
+        Quaternion startRot = tileView.gameObject.transform.localRotation;
+
+        // Animate smooth movement between start and end
+        while (time < duration) {
+            float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
+
+            tileView.gameObject.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
+            tileView.gameObject.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
+
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        // Snap to end pos after animation to avoid drift
+        tileView.gameObject.transform.localPosition = endPos;
+        tileView.gameObject.transform.localRotation = endRot;
+    }
+
+    private Vector3 GetHandCentrePos(List<MahjongTile> hand) {
+        Vector3 sum = Vector3.zero;
+
+        foreach (MahjongTile tile in hand) {
+            sum += tileViews[tile].gameObject.transform.localPosition;
+        }
+
+        return sum / hand.Count;
     }
 
     private static SeatLayout GetSeatLayout(int seat, float tableRadius, float height, bool isUpright) {
