@@ -23,9 +23,11 @@ public class GameManager : MonoBehaviour {
     private List<Player> players;
     private Queue<MahjongTile> wall;
     private Vector3 cameraBasePos;
+    private Vector3 discardBasePos;
     private float cameraBaseTilt;
     private MahjongTile currentDrawnTile;
 
+    private int discardIndex = 0;
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
 
@@ -64,9 +66,14 @@ public class GameManager : MonoBehaviour {
 
         // Spawn tiles
         for (int i = 0; i < players.Count; i++) {
+            SortHand(players[i].hand);
             SpawnHand(players[i].hand, players[i].seat);
         }
         SpawnWall(wall);
+
+        // Find discard starting position from position of first wall tile
+        discardBasePos = tileViews[wall.ElementAt(1)].transform.localPosition;
+        discardBasePos += new Vector3(1.1f, 0.0f, -3.1f);
 
         // Start first turn
         StartTurn();
@@ -78,8 +85,9 @@ public class GameManager : MonoBehaviour {
 
         Player currentPlayer = players[currentPlayerIndex];
 
-        DrawTile(currentPlayer);
+        RelayoutHand(currentPlayer.hand, currentPlayer.seat);
 
+        DrawTile(currentPlayer);
         waitingForDiscard = true;
     }
 
@@ -137,11 +145,24 @@ public class GameManager : MonoBehaviour {
             ));
         }
 
-        // TODO: Move to discard pile instead of destroying
-        Destroy(tileView.gameObject);
-        waitingForDiscard = false;
+        // Move discarded tile to discard pile
+        StartCoroutine(MoveTile(tileViews[tile], GetDiscardPos(), Quaternion.identity));
 
+        waitingForDiscard = false;
         EndTurn();
+    }
+
+    private void RelayoutHand(List<MahjongTile> hand, int seat) {
+        SortHand(hand);
+
+        SeatLayout layout = GetSeatLayout(seat, 18.0f, 1.0f, true);
+
+        for (int i = 0; i < hand.Count; i++) {
+            float tileOffset = (i - (hand.Count - 1) / 2.0f) * 2.1f;
+            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
+
+            StartCoroutine(MoveTile(tileViews[hand[i]], pos, layout.rotation));
+        }
     }
 
     private void SpawnHand(List<MahjongTile> hand, int seat) {
@@ -262,6 +283,26 @@ public class GameManager : MonoBehaviour {
         return sum / hand.Count;
     }
 
+    private Vector3 GetDiscardPos() {
+        int tilesPerRow = 10;
+
+        int row = discardIndex / tilesPerRow;
+        int column = discardIndex % tilesPerRow;
+
+        Vector3 pos;
+        // Change position of row 6 to avoid clipping
+        if (row == 6) {
+            pos = discardBasePos + new Vector3(column * 2.1f, 0f, 3.1f);
+        } else {
+            // Account for row 6 being in different position
+            if (row > 6) { row--; }
+            pos = discardBasePos + new Vector3(column * 2.1f, 0f, -row * 3.1f);
+        }
+
+        discardIndex++;
+        return pos;
+    }
+
     private static SeatLayout GetSeatLayout(int seat, float tableRadius, float height, bool isUpright) {
         // Get position data needed to spawn hand based on player seat
         float angle = seat * 90.0f;
@@ -281,6 +322,29 @@ public class GameManager : MonoBehaviour {
             tileDirection = Quaternion.Euler(0.0f, angle, 0.0f) * Vector3.right,
             rotation = rotation
         };
+    }
+
+    private static void SortHand(List<MahjongTile> hand) {
+        hand.Sort((a, b) => {
+            // Sort by suit
+            int suitComparison = b.suit.CompareTo(a.suit);
+            if (suitComparison != 0) { return suitComparison; }
+
+            // Sort by number/wind type/dragon type
+            switch(a.suit) {
+                case TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots:
+                    return b.number.CompareTo(a.number);
+                
+                case TileSuit.Winds:
+                    return b.wind.CompareTo(a.wind);
+                
+                case TileSuit.Dragons:
+                    return b.dragon.CompareTo(a.dragon);
+                
+                default:
+                    return 0;
+            }
+        });
     }
 
     // Fisher–Yates shuffle
