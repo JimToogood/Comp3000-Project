@@ -26,10 +26,12 @@ public class GameManager : MonoBehaviour {
     private Vector3 discardBasePos;
     private float cameraBaseTilt;
     private MahjongTile currentDrawnTile;
+    private MahjongTile lastDiscardedTile;
 
     private int discardIndex = 0;
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
+    private bool waitingForCall = false;
 
 
     private void Start() {
@@ -76,10 +78,10 @@ public class GameManager : MonoBehaviour {
         discardBasePos += new Vector3(1.1f, 0.0f, -3.1f);
 
         // Start first turn
-        StartTurn();
+        StartTurn(true);
     }
 
-    private void StartTurn() {
+    private void StartTurn(bool drawTile) {
         StartCoroutine(MoveCamera(currentPlayerIndex));
         Debug.Log($"Player {currentPlayerIndex} turn begins");
 
@@ -87,24 +89,23 @@ public class GameManager : MonoBehaviour {
 
         RelayoutHand(currentPlayer.hand, currentPlayer.seat);
 
-        DrawTile(currentPlayer);
+        if (drawTile) { DrawTile(currentPlayer); }
         waitingForDiscard = true;
     }
 
     private void EndTurn() {
-        currentPlayerIndex++;
-        if (currentPlayerIndex >= players.Count) { currentPlayerIndex = 0; }
-        StartTurn();
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.Count;
+        StartTurn(true);
     }
 
     public void OnTileClicked(TileView tileView) {
-        Debug.Log($"Clicked tile {tileView.tileData.id}");
+        //Debug.Log($"Clicked tile {tileView.tileData.id}");
         if (!waitingForDiscard) { return; }
 
         MahjongTile tile = tileView.tileData;
         Player currentPlayer = players[currentPlayerIndex];
 
-        if (!currentPlayer.hand.Contains(tile)) { Debug.Log($"That tile does not belong to the current player!"); return; }
+        if (!currentPlayer.hand.Contains(tile)) { Debug.Log($"That tile is not in the current player's hand!"); return; }
 
         DiscardTile(currentPlayer, tile, tileView);
     }
@@ -136,10 +137,11 @@ public class GameManager : MonoBehaviour {
 
         player.hand.Remove(tile);
         player.discards.Add(tile);
+        lastDiscardedTile = tile;
 
         // Move drawn tile to where discarded tile was
-        if (tile != currentDrawnTile) {
-            Debug.Log($"Tile {currentDrawnTile.id} moves to where tile {tile.id} was");
+        if (tile != currentDrawnTile && currentDrawnTile != null) {
+            //Debug.Log($"Tile {currentDrawnTile.id} moves to where tile {tile.id} was");
             StartCoroutine(MoveTile(
                 tileViews[currentDrawnTile], tileViews[tile].transform.localPosition, tileViews[tile].transform.localRotation
             ));
@@ -149,7 +151,102 @@ public class GameManager : MonoBehaviour {
         StartCoroutine(MoveTile(tileViews[tile], GetDiscardPos(), Quaternion.identity));
 
         waitingForDiscard = false;
-        EndTurn();
+
+        CheckForCalls();
+    }
+    
+    private void CheckForCalls() {
+        Debug.Log($"Checking for calls...");
+        waitingForCall = false;
+
+        // Check every player except player who just discarded
+        for (int i = 1; i < players.Count; i++) {
+            int seatToCheck = (currentPlayerIndex + i) % players.Count;
+            Player playerToCheck = players[seatToCheck];
+
+            // Find how many tiles matching the discard that the player has in their hand
+            int matchCount = 0;
+            foreach (MahjongTile tile in playerToCheck.hand) {
+                if (tile.IsSameTile(lastDiscardedTile)) {
+                    matchCount++;
+                }
+            }
+
+            // If player has 2 or more identical tiles, then they can Pon
+            if (matchCount >= 2) {
+                playerToCheck.pendingCall = CallType.Pon;
+                playerToCheck.callTile = lastDiscardedTile;
+                waitingForCall = true;
+
+                Debug.Log($"Player {seatToCheck} can Pon tile {playerToCheck.callTile.id}");
+                // TODO: Change this automatic call to player choice
+                ResolveCall(playerToCheck);
+            }
+
+            // If player has 3 or more identical tiles, then they can Kan
+            if (matchCount >= 3) {
+                playerToCheck.pendingCall = CallType.Kan;
+                playerToCheck.callTile = lastDiscardedTile;
+                waitingForCall = true;
+
+                Debug.Log($"Player {seatToCheck} can Kan tile {playerToCheck.callTile.id}");
+            }
+
+            // If player is next in turn order, check if they can Chi
+            // TODO: Implement chi detection
+        }
+
+        if (!waitingForCall) {
+            Debug.Log($"No calls found. Ending turn...");
+            EndTurn();
+        }
+    }
+
+    private void ResolveCall(Player player) {
+        currentPlayerIndex = player.seat;
+        currentDrawnTile = null;
+
+        // Add called tile to player's melds
+        player.melds.Add(player.callTile);
+        StartCoroutine(MoveTile(
+            // TODO: Change 0 Vector to proper melds position
+            tileViews[player.callTile], new Vector3(0.0f, 0.0f, 0.0f), tileViews[player.callTile].transform.localRotation
+        ));
+
+        // Calculate how many tiles need to be moved from players hand to players melds
+        int tilesNeeded;
+        if (player.pendingCall == CallType.Kan) {
+            Debug.Log($"Player {player.seat} Kans tile {player.callTile.id}");
+            tilesNeeded = 3;
+        } else {
+            Debug.Log($"Player {player.seat} Pons tile {player.callTile.id}");
+            tilesNeeded = 2;
+        }
+
+        // Find tiles from hand
+        List<MahjongTile> tilesToMove = new();
+
+        foreach (MahjongTile tile in player.hand) {
+            if (tile.IsSameTile(player.callTile)) {
+                tilesToMove.Add(tile);
+                if (tilesToMove.Count >= tilesNeeded) { break; }
+            }
+        }
+
+        // Remove tiles from hand in seperate pass to avoid InvalidOperationException
+        foreach (MahjongTile tile in tilesToMove) {
+            player.hand.Remove(tile);
+            player.melds.Add(tile);
+
+            StartCoroutine(MoveTile(
+                tileViews[tile], new Vector3(0.0f, 0.0f, 0.0f), tileViews[tile].transform.localRotation
+            ));
+        }
+
+        // Reset call variables and start turn
+        player.pendingCall = null;
+        player.callTile = null;
+        StartTurn(false);
     }
 
     private void RelayoutHand(List<MahjongTile> hand, int seat) {
@@ -292,15 +389,23 @@ public class GameManager : MonoBehaviour {
         Vector3 pos;
         // Change position of row 6 to avoid clipping
         if (row == 6) {
-            pos = discardBasePos + new Vector3(column * 2.1f, 0f, 3.1f);
+            pos = discardBasePos + new Vector3(column * 2.1f, 0.0f, 3.1f);
         } else {
             // Account for row 6 being in different position
             if (row > 6) { row--; }
-            pos = discardBasePos + new Vector3(column * 2.1f, 0f, -row * 3.1f);
+            pos = discardBasePos + new Vector3(column * 2.1f, 0.0f, -row * 3.1f);
         }
 
         discardIndex++;
         return pos;
+    }
+
+    private static bool CanChi(Player player, MahjongTile tile) {
+        // If tile is a wind or a dragon, it cannot Chi
+        if (tile.suit is not (TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots)) { return false; }
+
+        // TODO: Implement chi detecting logic
+        return false;
     }
 
     private static SeatLayout GetSeatLayout(int seat, float tableRadius, float height, bool isUpright) {
@@ -331,24 +436,17 @@ public class GameManager : MonoBehaviour {
             if (suitComparison != 0) { return suitComparison; }
 
             // Sort by number/wind type/dragon type
-            switch(a.suit) {
-                case TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots:
-                    return b.number.CompareTo(a.number);
-                
-                case TileSuit.Winds:
-                    return b.wind.CompareTo(a.wind);
-                
-                case TileSuit.Dragons:
-                    return b.dragon.CompareTo(a.dragon);
-                
-                default:
-                    return 0;
-            }
+            return a.suit switch {
+                TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots => b.number.CompareTo(a.number),
+                TileSuit.Winds => b.wind.CompareTo(a.wind),
+                TileSuit.Dragons => b.dragon.CompareTo(a.dragon),
+                _ => 0
+            };
         });
     }
 
-    // Fisher–Yates shuffle
     private static void Shuffle(List<MahjongTile> tiles) {
+        // Fisher–Yates shuffle
         for (int i = tiles.Count - 1; i > 0; i--) {
             int j = Random.Range(0, i + 1);
 
