@@ -11,6 +11,8 @@ public struct SeatLayout {
 
 
 public class GameManager : MonoBehaviour {
+    const float TILE_SPACING = 2.1f;
+
     // Set instance so game manager can be called in other classes
     public static GameManager Instance { get; private set; }
     void Awake() { Instance = this; }
@@ -31,7 +33,6 @@ public class GameManager : MonoBehaviour {
     private int discardIndex = 0;
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
-    private bool waitingForCall = false;
 
 
     private void Start() {
@@ -87,13 +88,14 @@ public class GameManager : MonoBehaviour {
 
         Player currentPlayer = players[currentPlayerIndex];
 
-        RelayoutHand(currentPlayer.hand, currentPlayer.seat);
-
         if (drawTile) { DrawTile(currentPlayer); }
         waitingForDiscard = true;
     }
 
     private void EndTurn() {
+        RelayoutHand(players[currentPlayerIndex]);
+        LayoutMeld(players[currentPlayerIndex]);
+
         currentPlayerIndex = (currentPlayerIndex + 1) % players.Count;
         StartTurn(true);
     }
@@ -117,7 +119,8 @@ public class GameManager : MonoBehaviour {
         }
    
         // Get the position for the drawn tile as above the position of the centre hand tile
-        Vector3 drawnTilePos = GetHandCentrePos(player.hand);
+        SeatLayout layout = GetSeatLayout(player.seat, 18.0f, 1.0f, true);
+        Vector3 drawnTilePos = layout.basePos;
         drawnTilePos.y += 4.25f;
 
         // Draw next tile from wall and add to player's hand
@@ -128,7 +131,7 @@ public class GameManager : MonoBehaviour {
 
         // Move drawn tile to above player's hand
         StartCoroutine(MoveTile(
-            tileViews[currentDrawnTile], drawnTilePos, tileViews[player.hand[0]].transform.localRotation
+            tileViews[currentDrawnTile], drawnTilePos, layout.rotation
         ));
     }
 
@@ -140,7 +143,7 @@ public class GameManager : MonoBehaviour {
         lastDiscardedTile = tile;
 
         // Move drawn tile to where discarded tile was
-        if (tile != currentDrawnTile && currentDrawnTile != null) {
+        if (currentDrawnTile != null && tile != currentDrawnTile) {
             //Debug.Log($"Tile {currentDrawnTile.id} moves to where tile {tile.id} was");
             StartCoroutine(MoveTile(
                 tileViews[currentDrawnTile], tileViews[tile].transform.localPosition, tileViews[tile].transform.localRotation
@@ -157,7 +160,7 @@ public class GameManager : MonoBehaviour {
     
     private void CheckForCalls() {
         Debug.Log($"Checking for calls...");
-        waitingForCall = false;
+        bool callFound = false;
 
         // Check every player except player who just discarded
         for (int i = 1; i < players.Count; i++) {
@@ -172,50 +175,57 @@ public class GameManager : MonoBehaviour {
                 }
             }
 
-            // If player has 2 or more identical tiles, then they can Pon
-            if (matchCount >= 2) {
-                playerToCheck.pendingCall = CallType.Pon;
-                playerToCheck.callTile = lastDiscardedTile;
-                waitingForCall = true;
-
-                Debug.Log($"Player {seatToCheck} can Pon tile {playerToCheck.callTile.id}");
-                // TODO: Change this automatic call to player choice
-                ResolveCall(playerToCheck);
-            }
-
             // If player has 3 or more identical tiles, then they can Kan
             if (matchCount >= 3) {
                 playerToCheck.pendingCall = CallType.Kan;
                 playerToCheck.callTile = lastDiscardedTile;
-                waitingForCall = true;
+                callFound = true;
 
                 Debug.Log($"Player {seatToCheck} can Kan tile {playerToCheck.callTile.id}");
+                // TODO: Change this automatic call to player choice
+                ResolveCall(playerToCheck);
+                return;
             }
+            // If player has 2 or more identical tiles, then they can Pon
+            else if (matchCount == 2) {
+                playerToCheck.pendingCall = CallType.Pon;
+                playerToCheck.callTile = lastDiscardedTile;
+                callFound = true;
 
+                Debug.Log($"Player {seatToCheck} can Pon tile {playerToCheck.callTile.id}");
+                ResolveCall(playerToCheck);
+                return;
+            }
             // If player is next in turn order, check if they can Chi
-            // TODO: Implement chi detection
+            /*else if (i == 1 && CanChi(playerToCheck, lastDiscardedTile)) {
+                playerToCheck.pendingCall = CallType.Chi;
+                playerToCheck.callTile = lastDiscardedTile;
+                callFound = true;
+
+                Debug.Log($"Player {seatToCheck} can Chi tile {playerToCheck.callTile.id}");
+                ResolveCall(playerToCheck);
+                return;
+            }*/
         }
 
-        if (!waitingForCall) {
+        if (!callFound) {
             Debug.Log($"No calls found. Ending turn...");
             EndTurn();
         }
     }
 
     private void ResolveCall(Player player) {
+        // TODO: Add logic to resolve Chi
         currentPlayerIndex = player.seat;
         currentDrawnTile = null;
+        bool isKan = player.pendingCall == CallType.Kan;
 
         // Add called tile to player's melds
         player.melds.Add(player.callTile);
-        StartCoroutine(MoveTile(
-            // TODO: Change 0 Vector to proper melds position
-            tileViews[player.callTile], new Vector3(0.0f, 0.0f, 0.0f), tileViews[player.callTile].transform.localRotation
-        ));
 
         // Calculate how many tiles need to be moved from players hand to players melds
         int tilesNeeded;
-        if (player.pendingCall == CallType.Kan) {
+        if (isKan) {
             Debug.Log($"Player {player.seat} Kans tile {player.callTile.id}");
             tilesNeeded = 3;
         } else {
@@ -237,28 +247,48 @@ public class GameManager : MonoBehaviour {
         foreach (MahjongTile tile in tilesToMove) {
             player.hand.Remove(tile);
             player.melds.Add(tile);
-
-            StartCoroutine(MoveTile(
-                tileViews[tile], new Vector3(0.0f, 0.0f, 0.0f), tileViews[tile].transform.localRotation
-            ));
         }
 
-        // Reset call variables and start turn
-        player.pendingCall = null;
+        RelayoutHand(player);
+        LayoutMeld(player);
+
         player.callTile = null;
-        StartTurn(false);
+        player.pendingCall = null;
+
+        StartTurn(isKan);   // If call is a Kan, draw a Kan tile, else don't draw a tile
     }
 
-    private void RelayoutHand(List<MahjongTile> hand, int seat) {
-        SortHand(hand);
+    private void RelayoutHand(Player player) {
+        SortHand(player.hand);
 
-        SeatLayout layout = GetSeatLayout(seat, 18.0f, 1.0f, true);
+        SeatLayout layout = GetSeatLayout(player.seat, 18.0f, 1.0f, true);
 
-        for (int i = 0; i < hand.Count; i++) {
-            float tileOffset = (i - (hand.Count - 1) / 2.0f) * 2.1f;
-            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
+        float meldWidth = player.melds.Count * TILE_SPACING;
+        Vector3 meldOffset = layout.tileDirection * (meldWidth / 2.0f);
 
-            StartCoroutine(MoveTile(tileViews[hand[i]], pos, layout.rotation));
+        for (int i = 0; i < player.hand.Count; i++) {
+            float tileOffset = (i - (player.hand.Count - 1) / 2.0f) * TILE_SPACING;
+            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset + meldOffset;
+
+            StartCoroutine(MoveTile(tileViews[player.hand[i]], pos, layout.rotation));
+        }
+    }
+
+    private void LayoutMeld(Player player) {
+        SeatLayout layout = GetSeatLayout(player.seat, 18.0f, 0.0f, false);
+
+        layout.rotation *= Quaternion.Euler(180.0f, 180.0f, 0.0f);
+
+        float handWidth = player.hand.Count * TILE_SPACING;
+        Vector3 handOffset = -layout.tileDirection * (handWidth / 2.0f + 1.0f);
+
+        for (int i = 0; i < player.melds.Count; i++) {
+            float tileOffset = (i - (player.melds.Count - 1) / 2.0f) * TILE_SPACING;
+            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset + handOffset;
+
+            StartCoroutine(
+                MoveTile(tileViews[player.melds[i]], pos, layout.rotation)
+            );
         }
     }
 
@@ -266,7 +296,7 @@ public class GameManager : MonoBehaviour {
         SeatLayout layout = GetSeatLayout(seat, 18.0f, 1.0f, true);
 
         for (int i = 0; i < hand.Count; i++) {
-            float tileOffset = (i - (hand.Count - 1) / 2.0f) * 2.1f;
+            float tileOffset = (i - (hand.Count - 1) / 2.0f) * TILE_SPACING;
             Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
 
             SpawnTile(hand[i], pos, layout.rotation);
@@ -296,7 +326,7 @@ public class GameManager : MonoBehaviour {
 
                     SeatLayout layout = GetSeatLayout(side, 12.1f, 0.0f, false);
 
-                    float tileOffset = (column - (columnsPerSide - 1) / 2.0f) * 2.1f;
+                    float tileOffset = (column - (columnsPerSide - 1) / 2.0f) * TILE_SPACING;
                     Vector3 pos = layout.basePos + layout.tileDirection * tileOffset;
                     pos.y += stack;
 
@@ -370,16 +400,6 @@ public class GameManager : MonoBehaviour {
         tileView.gameObject.transform.localRotation = endRot;
     }
 
-    private Vector3 GetHandCentrePos(List<MahjongTile> hand) {
-        Vector3 sum = Vector3.zero;
-
-        foreach (MahjongTile tile in hand) {
-            sum += tileViews[tile].gameObject.transform.localPosition;
-        }
-
-        return sum / hand.Count;
-    }
-
     private Vector3 GetDiscardPos() {
         int tilesPerRow = 10;
 
@@ -389,11 +409,11 @@ public class GameManager : MonoBehaviour {
         Vector3 pos;
         // Change position of row 6 to avoid clipping
         if (row == 6) {
-            pos = discardBasePos + new Vector3(column * 2.1f, 0.0f, 3.1f);
+            pos = discardBasePos + new Vector3(column * TILE_SPACING, 0.0f, 3.1f);
         } else {
             // Account for row 6 being in different position
             if (row > 6) { row--; }
-            pos = discardBasePos + new Vector3(column * 2.1f, 0.0f, -row * 3.1f);
+            pos = discardBasePos + new Vector3(column * TILE_SPACING, 0.0f, -row * 3.1f);
         }
 
         discardIndex++;
@@ -404,8 +424,27 @@ public class GameManager : MonoBehaviour {
         // If tile is a wind or a dragon, it cannot Chi
         if (tile.suit is not (TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots)) { return false; }
 
-        // TODO: Implement chi detecting logic
-        return false;
+        int n = tile.number;
+
+        bool hasMinus2 = false;
+        bool hasMinus1 = false;
+        bool hasPlus2 = false;
+        bool hasPlus1 = false;
+
+        foreach (MahjongTile t in player.hand) {
+            // Only tiles of the same suit can Chi
+            if (t.suit != tile.suit) { continue; }
+
+            if (t.number == n - 2) { hasMinus2 = true; }
+            if (t.number == n - 1) { hasMinus1 = true; }
+            if (t.number == n + 2) { hasPlus2 = true; }
+            if (t.number == n + 1) { hasPlus1 = true; }
+        }
+
+        if (hasMinus2 && hasMinus1) { return true; }
+        else if (hasMinus1 && hasPlus1) { return true; }
+        else if (hasPlus1 && hasPlus2) { return true; }
+        else { return false; }
     }
 
     private static SeatLayout GetSeatLayout(int seat, float tableRadius, float height, bool isUpright) {
