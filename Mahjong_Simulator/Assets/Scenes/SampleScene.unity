@@ -617,8 +617,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1546290630}
   - component: {fileID: 1546290631}
+  - component: {fileID: 1546290632}
   m_Layer: 0
-  m_Name: GameManager
+  m_Name: GameManagers
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -651,6 +652,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6faa38f07fda40628026760ba974a96, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
+--- !u!114 &1546290632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1546290628}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf214854f42184187a001663c546c4a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TableManager
   tilePrefab: {fileID: 7207797838974226503, guid: 5dbbdfc5d721e4cb69540c18a689f28b, type: 3}
   tileParent: {fileID: 2103996445}
   mainCamera: {fileID: 330585545}
