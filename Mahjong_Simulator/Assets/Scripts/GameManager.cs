@@ -67,8 +67,9 @@ public class GameManager : MonoBehaviour {
     }
 
     private void EndTurn() {
-        TableManager.Instance.LayoutHand(players[currentPlayerIndex]);
-        TableManager.Instance.LayoutMelds(players[currentPlayerIndex]);
+        Player currentPlayer = players[currentPlayerIndex];
+
+        TableManager.Instance.RefreshPlayerVisuals(currentPlayer);
 
         currentPlayerIndex = (currentPlayerIndex + 1) % players.Count;
         StartTurn(true);
@@ -118,6 +119,8 @@ public class GameManager : MonoBehaviour {
     private void CheckForCalls() {
         Debug.Log($"Checking for calls...");
 
+        Player discardingPlayer = players[currentPlayerIndex];
+
         // Check every player except player who just discarded
         for (int i = 1; i < players.Count; i++) {
             int seatToCheck = (currentPlayerIndex + i) % players.Count;
@@ -136,9 +139,12 @@ public class GameManager : MonoBehaviour {
                 playerToCheck.pendingCall = CallType.Kan;
                 playerToCheck.callTile = lastDiscardedTile;
 
+                TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
+
                 Debug.Log($"Player {seatToCheck} can Kan tile {playerToCheck.callTile.id}");
+                
                 // TODO: Change this automatic call to player choice
-                ResolveCall(playerToCheck);
+                ResolveCall(playerToCheck, null);
                 return;
             }
             // If player has 2 or more identical tiles, then they can Pon
@@ -146,33 +152,44 @@ public class GameManager : MonoBehaviour {
                 playerToCheck.pendingCall = CallType.Pon;
                 playerToCheck.callTile = lastDiscardedTile;
 
+                TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
+
                 Debug.Log($"Player {seatToCheck} can Pon tile {playerToCheck.callTile.id}");
-                ResolveCall(playerToCheck);
+
+                ResolveCall(playerToCheck, null);
                 return;
             }
             // If player is next in turn order, check if they can Chi
-            /*else if (i == 1 && CanChi(playerToCheck, lastDiscardedTile)) {
-                playerToCheck.pendingCall = CallType.Chi;
-                playerToCheck.callTile = lastDiscardedTile;
+            else if (i == 1) {
+                List<MahjongTile> chiTiles = GetChiTiles(playerToCheck, lastDiscardedTile);
 
-                Debug.Log($"Player {seatToCheck} can Chi tile {playerToCheck.callTile.id}");
-                ResolveCall(playerToCheck);
-                return;
-            }*/
+                if (chiTiles != null) {
+                    playerToCheck.pendingCall = CallType.Chi;
+                    playerToCheck.callTile = lastDiscardedTile;
+
+                    TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
+
+                    Debug.Log($"Player {seatToCheck} can Chi tile {playerToCheck.callTile.id}");
+
+                    ResolveCall(playerToCheck, chiTiles);
+                    return;
+                }
+            }
         }
 
         Debug.Log($"No calls found. Ending turn...");
         EndTurn();
     }
 
-    private void ResolveCall(Player player) {
+    private void ResolveCall(Player player, List<MahjongTile> chiTiles) {
         // TODO: Add logic to resolve Chi
         currentPlayerIndex = player.seat;
         currentDrawnTile = null;
         bool isKan = player.pendingCall == CallType.Kan;
 
         // Add called tile to player's melds
-        player.melds.Add(player.callTile);
+        List<MahjongTile> newMeld = new();
+        newMeld.Add(player.callTile);
 
         // Calculate how many tiles need to be moved from players hand to players melds
         int tilesNeeded;
@@ -187,21 +204,29 @@ public class GameManager : MonoBehaviour {
         // Find tiles from hand
         List<MahjongTile> tilesToMove = new();
 
-        foreach (MahjongTile tile in player.hand) {
-            if (tile.IsSameTile(player.callTile)) {
-                tilesToMove.Add(tile);
-                if (tilesToMove.Count >= tilesNeeded) { break; }
+        // If call is not Chi
+        if (chiTiles == null) {
+            foreach (MahjongTile tile in player.hand) {
+                if (tile.IsSameTile(player.callTile)) {
+                    tilesToMove.Add(tile);
+                    if (tilesToMove.Count >= tilesNeeded) { break; }
+                }
             }
+        }
+        // If call is Chi
+        else {
+            tilesToMove = chiTiles;
         }
 
         // Remove tiles from hand in seperate pass to avoid InvalidOperationException
         foreach (MahjongTile tile in tilesToMove) {
             player.hand.Remove(tile);
-            player.melds.Add(tile);
+            newMeld.Add(tile);
         }
 
-        TableManager.Instance.LayoutHand(player);
-        TableManager.Instance.LayoutMelds(player);
+        player.melds.Add(newMeld);
+
+        TableManager.Instance.RefreshPlayerVisuals(player);
 
         player.callTile = null;
         player.pendingCall = null;
@@ -209,31 +234,36 @@ public class GameManager : MonoBehaviour {
         StartTurn(isKan);   // If call is a Kan, draw a Kan tile, else don't draw a tile
     }
 
-    private static bool CanChi(Player player, MahjongTile tile) {
+    private static List<MahjongTile> GetChiTiles(Player player, MahjongTile tile) {
         // If tile is a wind or a dragon, it cannot Chi
-        if (tile.suit is not (TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots)) { return false; }
+        if (tile.suit is not (TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots)) { return null; }
 
         int n = tile.number;
 
-        bool hasMinus2 = false;
-        bool hasMinus1 = false;
-        bool hasPlus2 = false;
-        bool hasPlus1 = false;
+        MahjongTile minus2 = null;
+        MahjongTile minus1 = null;
+        MahjongTile plus2 = null;
+        MahjongTile plus1 = null;
 
         foreach (MahjongTile t in player.hand) {
             // Only tiles of the same suit can Chi
             if (t.suit != tile.suit) { continue; }
 
-            if (t.number == n - 2) { hasMinus2 = true; }
-            if (t.number == n - 1) { hasMinus1 = true; }
-            if (t.number == n + 2) { hasPlus2 = true; }
-            if (t.number == n + 1) { hasPlus1 = true; }
+            if (t.number == n - 2 && minus2 == null) { minus2 = t; }
+            if (t.number == n - 1 && minus1 == null) { minus1 = t; }
+            if (t.number == n + 2 && plus2 == null) { plus2 = t; }
+            if (t.number == n + 1 && plus1 == null) { plus1 = t; }
         }
 
-        if (hasMinus2 && hasMinus1) { return true; }
-        else if (hasMinus1 && hasPlus1) { return true; }
-        else if (hasPlus1 && hasPlus2) { return true; }
-        else { return false; }
+        if (minus2 != null && minus1 != null) {
+            return new List<MahjongTile> { minus2, minus1 };
+        } else if (minus1 != null && plus1 != null) {
+            return new List<MahjongTile> { minus1, plus1 };
+        } else if (plus1 != null && plus2 != null) {
+            return new List<MahjongTile> { plus1, plus2 };
+        }
+        
+        return null;
     }
 
     private static void Shuffle(List<MahjongTile> tiles) {

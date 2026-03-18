@@ -9,7 +9,6 @@ public class TableManager : MonoBehaviour {
 
     // Set instance so table manager can be called in other classes
     public static TableManager Instance { get; private set; }
-    void Awake() { Instance = this; }
 
     [SerializeField] private GameObject tilePrefab;
     [SerializeField] private Transform tileParent;
@@ -21,7 +20,10 @@ public class TableManager : MonoBehaviour {
     private float cameraBaseTilt;
     private int discardIndex = 0;
 
-    private void Start() {
+
+    private void Awake() {
+        Instance = this;
+
         // Get camera base position
         cameraBasePos = mainCamera.transform.localPosition;
         cameraBaseTilt = mainCamera.transform.eulerAngles.x;
@@ -30,6 +32,7 @@ public class TableManager : MonoBehaviour {
     public void SetupTable(List<Player> players, Queue<MahjongTile> wall) {
         // Spawn tiles
         for (int i = 0; i < players.Count; i++) {
+            SortHand(players[i].hand);
             SpawnHand(players[i].hand, players[i].seat);
         }
 
@@ -60,11 +63,9 @@ public class TableManager : MonoBehaviour {
     }
     
     public void LayoutHand(Player player) {
-        SortHand(player.hand);
-        
         SeatLayout layout = GetSeatLayout(player.seat, 18.0f, 1.0f, true);
 
-        float meldWidth = player.melds.Count * TILE_SPACING;
+        float meldWidth = player.melds.Sum(m => m.Count) * TILE_SPACING;
         Vector3 meldOffset = layout.tileDirection * (meldWidth / 2.0f);
 
         for (int i = 0; i < player.hand.Count; i++) {
@@ -77,23 +78,44 @@ public class TableManager : MonoBehaviour {
 
     public void LayoutMelds(Player player) {
         SeatLayout layout = GetSeatLayout(player.seat, 18.0f, 0.0f, false);
-
         layout.rotation *= Quaternion.Euler(180.0f, 180.0f, 0.0f);
 
         float handWidth = player.hand.Count * TILE_SPACING;
         Vector3 handOffset = -layout.tileDirection * (handWidth / 2.0f + 1.0f);
 
-        for (int i = 0; i < player.melds.Count; i++) {
-            float tileOffset = (i - (player.melds.Count - 1) / 2.0f) * TILE_SPACING;
-            Vector3 pos = layout.basePos + layout.tileDirection * tileOffset + handOffset;
+        int totalMeldTiles = player.melds.Sum(m => m.Count);
+        int tileCounter = 0;
 
-            MoveTile(player.melds[i], pos, layout.rotation);
+        for (int i = 0; i < player.melds.Count; i++) {
+            List<MahjongTile> meld = player.melds[i];
+
+            for (int j = 0; j < meld.Count; j++) {
+                float tileOffset = (tileCounter - (totalMeldTiles - 1) / 2.0f) * TILE_SPACING;
+                Vector3 pos = layout.basePos + layout.tileDirection * tileOffset + handOffset;
+
+                MoveTile(meld[j], pos, layout.rotation);
+                tileCounter++;
+            }
         }
     }
 
-    private void SpawnHand(List<MahjongTile> hand, int seat) {
-        SortHand(hand);
+    public void SortHand(List<MahjongTile> hand) {
+        hand.Sort((a, b) => {
+            // Sort by suit
+            int suitComparison = b.suit.CompareTo(a.suit);
+            if (suitComparison != 0) { return suitComparison; }
 
+            // Sort by number/wind type/dragon type
+            return a.suit switch {
+                TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots => b.number.CompareTo(a.number),
+                TileSuit.Winds => b.wind.CompareTo(a.wind),
+                TileSuit.Dragons => b.dragon.CompareTo(a.dragon),
+                _ => 0
+            };
+        });
+    }
+
+    private void SpawnHand(List<MahjongTile> hand, int seat) {
         SeatLayout layout = GetSeatLayout(seat, 18.0f, 1.0f, true);
 
         for (int i = 0; i < hand.Count; i++) {
@@ -149,6 +171,12 @@ public class TableManager : MonoBehaviour {
         var tileView = tileObject.GetComponent<TileView>();
         tileView.SetTile(tile);
         tileViews[tile] = tileView;
+    }
+
+    public void RefreshPlayerVisuals(Player player) {
+        SortHand(player.hand);
+        LayoutHand(player);
+        LayoutMelds(player);
     }
 
     public void MoveCamera(int seat) {
@@ -248,21 +276,5 @@ public class TableManager : MonoBehaviour {
             tileDirection = Quaternion.Euler(0.0f, angle, 0.0f) * Vector3.right,
             rotation = rotation
         };
-    }
-
-    private static void SortHand(List<MahjongTile> hand) {
-        hand.Sort((a, b) => {
-            // Sort by suit
-            int suitComparison = b.suit.CompareTo(a.suit);
-            if (suitComparison != 0) { return suitComparison; }
-
-            // Sort by number/wind type/dragon type
-            return a.suit switch {
-                TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots => b.number.CompareTo(a.number),
-                TileSuit.Winds => b.wind.CompareTo(a.wind),
-                TileSuit.Dragons => b.dragon.CompareTo(a.dragon),
-                _ => 0
-            };
-        });
     }
 }
