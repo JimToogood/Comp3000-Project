@@ -65,7 +65,7 @@ public class TableManager : MonoBehaviour {
     public void LayoutHand(Player player) {
         SeatLayout layout = GetSeatLayout(player.seat, 18.0f, 1.0f, true);
 
-        float meldWidth = player.melds.Sum(m => m.Count) * TILE_SPACING;
+        float meldWidth = player.melds.Sum(m => m.tiles.Count) * TILE_SPACING;
         Vector3 meldOffset = layout.tileDirection * (meldWidth / 2.0f);
 
         for (int i = 0; i < player.hand.Count; i++) {
@@ -83,17 +83,21 @@ public class TableManager : MonoBehaviour {
         float handWidth = player.hand.Count * TILE_SPACING;
         Vector3 handOffset = -layout.tileDirection * (handWidth / 2.0f + 1.0f);
 
-        int totalMeldTiles = player.melds.Sum(m => m.Count);
+        int totalMeldTiles = player.melds.Sum(m => m.tiles.Count);
         int tileCounter = 0;
 
-        for (int i = 0; i < player.melds.Count; i++) {
-            List<MahjongTile> meld = player.melds[i];
-
-            for (int j = 0; j < meld.Count; j++) {
+        foreach (Meld meld in player.melds) {
+            for (int i = 0; i < meld.tiles.Count; i++) {
                 float tileOffset = (tileCounter - (totalMeldTiles - 1) / 2.0f) * TILE_SPACING;
                 Vector3 pos = layout.basePos + layout.tileDirection * tileOffset + handOffset;
 
-                MoveTile(meld[j], pos, layout.rotation);
+                Quaternion rot = layout.rotation;
+
+                if (meld.isConcealed) {
+                    rot *= Quaternion.Euler(180.0f, 0.0f, 0.0f);
+                }
+
+                MoveTile(meld.tiles[i], pos, rot);
                 tileCounter++;
             }
         }
