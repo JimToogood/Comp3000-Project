@@ -22,11 +22,22 @@ public class GameManager : MonoBehaviour {
     private MahjongTile currentDrawnTile;
     private MahjongTile lastDiscardedTile;
 
+    private bool isPaused = true;
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
+    
 
+    public void TogglePause(bool paused) {
+        isPaused = paused;
 
-    private void Start() {
+        if (!isPaused) {
+            Time.timeScale = 1.0f;
+        } else {
+            Time.timeScale = 0.0f;
+        }
+    }
+
+    public void StartGame() {
         List<MahjongTile> tiles = new();
         int tileIndex = 0;
 
@@ -105,6 +116,7 @@ public class GameManager : MonoBehaviour {
     }
 
     public void OnTileClicked(TileView tileView) {
+        if (isPaused) { return; }
         if (!waitingForDiscard) { return; }
 
         MahjongTile tile = tileView.tileData;
