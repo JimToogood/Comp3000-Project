@@ -161,8 +161,7 @@ public class GameManager : MonoBehaviour {
     }
     
     private void CheckForCalls() {
-        Debug.Log($"Checking for calls...");
-
+        //Debug.Log($"Checking for calls...");
         Player discardingPlayer = players[currentPlayerIndex];
 
         // Check every player except player who just discarded
@@ -212,8 +211,7 @@ public class GameManager : MonoBehaviour {
                     playerToCheck.callTile = lastDiscardedTile;
 
                     TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
-
-                    Debug.Log($"Player {seatToCheck} can Chi tile {playerToCheck.callTile.id}");
+                    //Debug.Log($"Player {seatToCheck} can Chi tile {playerToCheck.callTile.id}");
 
                     ResolveCall(playerToCheck, chiTiles);
                     return;
@@ -237,13 +235,18 @@ public class GameManager : MonoBehaviour {
         newMeld.tiles.Add(player.callTile);
 
         // Calculate how many tiles need to be moved from players hand to players melds
-        int tilesNeeded;
+        int tilesNeeded = 0;
         if (isKan) {
             Debug.Log($"Player {player.seat} Kans tile {player.callTile.id}");
             tilesNeeded = 3;
+            newMeld.type = CallType.Kan;
+        } else if (isChi) {
+            Debug.Log($"Player {player.seat} Chis tile {player.callTile.id}");
+            newMeld.type = CallType.Chi;
         } else {
             Debug.Log($"Player {player.seat} Pons tile {player.callTile.id}");
             tilesNeeded = 2;
+            newMeld.type = CallType.Pon;
         }
 
         // Find tiles from hand
@@ -286,6 +289,7 @@ public class GameManager : MonoBehaviour {
                 // Upgrade Pon to Kan
                 player.hand.Remove(tile);
                 meld.tiles.Add(tile);
+                meld.type = CallType.Kan;
 
                 Debug.Log($"Player {player.seat} upgrades Pon to Kan with tile {tile.id}");
                 TableManager.Instance.RefreshPlayerVisuals(player);
@@ -316,7 +320,7 @@ public class GameManager : MonoBehaviour {
                     player.hand.Remove(t);
                 }
 
-                player.melds.Add(new Meld(new List<MahjongTile>(matchingTiles), true));
+                player.melds.Add(new Meld(new List<MahjongTile>(matchingTiles), CallType.Kan, true));
 
                 Debug.Log($"Player {player.seat} declares a Concealed Kan.");
                 TableManager.Instance.RefreshPlayerVisuals(player);

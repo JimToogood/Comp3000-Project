@@ -9,3 +9,8 @@ All textures, models, sounds, etc. used in this project are copyright-free and l
 Tile textures by FluffyStuff (edited by me) - https://github.com/FluffyStuff/riichi-mahjong-tiles  
 Room model "The Billiards Room" by The Hallwyl Museum (texture and model edited by me) - https://sketchfab.com/3d-models/the-billiards-room-79615d823a9149069dcd06c20bc9707f  
 Table model "Victorian Wooden Table" by Enzo Amanrich (texture edited by me) - https://sketchfab.com/3d-models/victorian-wooden-table-1fe13399313e483ca04e34e56ba1c1c7  
+
+**Sound Assets Used:**  
+Tchaikovsky Op 37a The Seasons December - https://www.classicals.de/tchaikovsky-seasons  
+Beethoven Op 13 No 8 Pathetique - [Performed by Gabriel Antonio Hernandez Romero](https://imslp.org/wiki/Piano_Sonata_No.8,_Op.13_(Beethoven,_Ludwig_van))  
+Robert Schumann Op 15 No 7 Kinderszenen - https://imslp.org/wiki/Kinderszenen%2C_Op.15_(Schumann%2C_Robert)  

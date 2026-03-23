@@ -40,7 +40,7 @@ public class TableManager : MonoBehaviour {
 
         // Find discard starting position from position of first wall tile
         discardBasePos = tileViews[wall.ElementAt(1)].transform.localPosition;
-        discardBasePos += new Vector3(1.1f, 0.0f, -3.1f);
+        discardBasePos += new Vector3(1.1f, 0.0f, -4.4f);
     }
 
     public void AnimateDraw(Player player, MahjongTile tile) {
@@ -248,12 +248,12 @@ public class TableManager : MonoBehaviour {
         int column = discardIndex % tilesPerRow;
 
         Vector3 pos;
-        // Change position of row 6 to avoid clipping
-        if (row == 6) {
-            pos = discardBasePos + new Vector3(column * TILE_SPACING, 0.0f, 3.1f);
+        // Change position of rows 6 and 7 to avoid clipping
+        if (row == 6 || row == 7) {
+            pos = discardBasePos + new Vector3(column * TILE_SPACING, 0.0f, (row - 5) * 3.1f);
         } else {
-            // Account for row 6 being in different position
-            if (row > 6) { row--; }
+            // Account for rows 6 and 7 being in different position
+            if (row > 7) { row -= 2; }
             pos = discardBasePos + new Vector3(column * TILE_SPACING, 0.0f, -row * 3.1f);
         }
 

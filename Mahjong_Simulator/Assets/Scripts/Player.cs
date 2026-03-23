@@ -2,15 +2,17 @@ using UnityEngine;
 using System.Collections.Generic;
 
 // Kong, Pung, Chow
-public enum CallType { Kan, Pon, Chi };
+public enum CallType { None, Kan, Pon, Chi };
 
 public class Meld {
     public List<MahjongTile> tiles;
     public bool isConcealed;
+    public CallType type;
 
-    public Meld(List<MahjongTile> tiles, bool isConcealed = false) {
+    public Meld(List<MahjongTile> tiles, CallType type = CallType.None, bool isConcealed = false) {
         this.tiles = tiles;
         this.isConcealed = isConcealed;
+        this.type = type;
     }
 }
 
