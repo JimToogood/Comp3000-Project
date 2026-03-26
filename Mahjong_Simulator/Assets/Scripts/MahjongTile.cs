@@ -25,4 +25,15 @@ public class MahjongTile {
             _ => false
         };
     }
+
+    public bool IsNumbered() {
+        return number != 0;
+    }
+
+    public bool IsSequentialTo(MahjongTile otherTile, int offset) {
+        if (!IsNumbered() || !otherTile.IsNumbered()) { return false; }
+        if (suit != otherTile.suit) { return false; }
+
+        return number == otherTile.number + offset;
+    }
 }

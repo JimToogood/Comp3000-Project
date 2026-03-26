@@ -142,6 +142,8 @@ public class GameManager : MonoBehaviour {
         // Move drawn tile to above player's hand
         TableManager.Instance.AnimateDraw(player, currentDrawnTile);
 
+        HandEvaluator.IsWinningHand(player);
+
         if (CheckKanUpgrade(player, currentDrawnTile)) { return; }
         if (CheckConcealedKan(player)) { return; }
     }
@@ -336,7 +338,7 @@ public class GameManager : MonoBehaviour {
 
     private static List<MahjongTile> GetChiTiles(Player player, MahjongTile tile) {
         // If tile is a wind or a dragon, it cannot Chi
-        if (tile.suit is not (TileSuit.Characters or TileSuit.Bamboo or TileSuit.Dots)) { return null; }
+        if (!tile.IsNumbered()) { return null; }
 
         int n = tile.number;
 
