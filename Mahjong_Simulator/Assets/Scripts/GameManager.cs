@@ -142,6 +142,7 @@ public class GameManager : MonoBehaviour {
         // Move drawn tile to above player's hand
         TableManager.Instance.AnimateDraw(player, currentDrawnTile);
 
+        // Check if new tile allows player to win
         HandEvaluator.IsWinningHand(player);
 
         if (CheckKanUpgrade(player, currentDrawnTile)) { return; }
@@ -226,9 +227,9 @@ public class GameManager : MonoBehaviour {
     }
 
     private void ResolveCall(Player player, List<MahjongTile> chiTiles) {
-        // TODO: Add logic to resolve Chi
         currentPlayerIndex = player.seat;
         currentDrawnTile = null;
+        
         bool isKan = player.pendingCall == CallType.Kan;
         bool isChi = chiTiles != null;
 

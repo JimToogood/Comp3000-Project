@@ -3,37 +3,50 @@ using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 
 public class MenuManager : MonoBehaviour {
     [SerializeField] private GameObject menuUI;
     [SerializeField] private GameObject mainMenu;
     [SerializeField] private GameObject pauseMenu;
+    [SerializeField] private GameObject rulesMenu;
     [SerializeField] private CanvasGroup fadePanel;
+    [SerializeField] private TMP_Text rulesText;
+    [SerializeField] private TMP_Text rulesTitleText;
     
     [SerializeField] private Camera gameCamera;
     [SerializeField] private Camera menuCamera;
 
     private bool gameStarted = false;
+    private List<string> rulesPages = new();
+    private int currentPage = 0;
 
 
     private void Start() {
         mainMenu.SetActive(true);
         pauseMenu.SetActive(false);
+        rulesMenu.SetActive(false);
 
         menuUI.SetActive(true);
         menuCamera.enabled = true;
         gameCamera.enabled = false;
 
+        LoadRulesTxt();
+
         StartCoroutine(Fade(1.0f, 0.0f));
     }
 
     private void Update() {
-        if (Input.GetKeyDown(KeyCode.Escape) && gameStarted) {
-            if (menuUI.activeSelf) {
-                PauseMenuClose();
-            } else {
-                PauseMenuOpen();
+        if (Input.GetKeyDown(KeyCode.Escape)) {
+            if (rulesMenu.activeSelf) {
+                BackButton();
+            } else if (gameStarted) {
+                if (menuUI.activeSelf) {
+                    PauseMenuClose();
+                } else {
+                    PauseMenuOpen();
+                }
             }
         }
     }
@@ -53,11 +66,6 @@ public class MenuManager : MonoBehaviour {
         StartCoroutine(FadeAndReload());
     }
 
-    private IEnumerator FadeAndReload() {
-        yield return StartCoroutine(Fade(0.0f, 1.0f));
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
-
     public void QuitButton() {
         #if UNITY_EDITOR
             // If in the editor, exit play mode
@@ -70,6 +78,45 @@ public class MenuManager : MonoBehaviour {
 
     public void PlayButton() {
         StartCoroutine(StartGameTransition());
+    }
+
+    public void RulesButton() {
+        if (gameStarted) {
+            pauseMenu.SetActive(false);
+        } else {
+            mainMenu.SetActive(false);
+        }
+        
+        rulesMenu.SetActive(true);
+        rulesText.text = rulesPages[currentPage];
+        rulesTitleText.text = $"Rules {currentPage + 1}/{rulesPages.Count}";
+    }
+
+    public void BackButton() {
+        if (gameStarted) {
+            pauseMenu.SetActive(true);
+        } else {
+            mainMenu.SetActive(true);
+        }
+        
+        rulesMenu.SetActive(false);
+        currentPage = 0;
+    }
+
+    public void NextPageButton() {
+        currentPage += 1;
+        if (currentPage > rulesPages.Count - 1) { currentPage = rulesPages.Count - 1; }
+
+        rulesText.text = rulesPages[currentPage];
+        rulesTitleText.text = $"Rules {currentPage + 1}/{rulesPages.Count}";
+    }
+
+    public void PreviousPageButton() {
+        currentPage -= 1;
+        if (currentPage < 0) { currentPage = 0; }
+
+        rulesText.text = rulesPages[currentPage];
+        rulesTitleText.text = $"Rules {currentPage + 1}/{rulesPages.Count}";
     }
 
     private IEnumerator StartGameTransition() {
@@ -92,6 +139,11 @@ public class MenuManager : MonoBehaviour {
         GameManager.Instance.TogglePause(false);
     }
 
+    private IEnumerator FadeAndReload() {
+        yield return StartCoroutine(Fade(0.0f, 1.0f));
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
     private IEnumerator Fade(float startAlpha, float endAlpha) {
         float time = 0.0f;
         float duration = 1.0f;
@@ -112,5 +164,20 @@ public class MenuManager : MonoBehaviour {
         // Snap to end alpha after animation to avoid rounding errors
         fadePanel.alpha = endAlpha;
         fadePanel.blocksRaycasts = false;
+    }
+
+    private void LoadRulesTxt() {
+        TextAsset textAsset = Resources.Load<TextAsset>("rule_book");
+
+        if (textAsset == null) {
+            Debug.LogError($"Failed to load 'rules.txt'");
+            return;
+        }
+
+        string[] splitText = textAsset.text.Split(new[]{"-----"}, System.StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (string page in splitText) {
+            rulesPages.Add(page.Trim());
+        }
     }
 }

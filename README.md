@@ -12,5 +12,5 @@ Table model "Victorian Wooden Table" by Enzo Amanrich (texture edited by me) - h
 
 **Sound Assets Used:**  
 Tchaikovsky Op 37a The Seasons December - https://www.classicals.de/tchaikovsky-seasons  
-Beethoven Op 13 No 8 Pathetique - [Performed by Gabriel Antonio Hernandez Romero](https://imslp.org/wiki/Piano_Sonata_No.8,_Op.13_(Beethoven,_Ludwig_van))  
+Beethoven Op 13 No 8 Pathetique - [IMSLP, performed by Gabriel Antonio Hernandez Romero](https://imslp.org/wiki/Piano_Sonata_No.8,_Op.13_(Beethoven,_Ludwig_van))  
 Robert Schumann Op 15 No 7 Kinderszenen - https://imslp.org/wiki/Kinderszenen%2C_Op.15_(Schumann%2C_Robert)  

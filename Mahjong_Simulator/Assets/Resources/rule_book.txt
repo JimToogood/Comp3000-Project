@@ -1,0 +1,50 @@
+<b><size=150%>Terminology</size></b>
+
+<b>Tiles</b>
+There are 136 tiles in total, divided into 3 suits and 2 honour suits. Collections of thirteen tiles form a hand and a fourteenth tile completes the hand.
+
+<b>The Wall</b>
+The wall, sometimes known as the Great Wall of China, is placed at the centre of the table and is where is where all new tiles are drawn from. It is automatically constructed at the beginning of the game.
+
+<b>Suits</b>
+There are three suits; Characters, Dots (also known as Spots/Circles) and Bamboo. Every suit runs from 1 to 9 and with four identical tiles for every number (e.g. there are four 5 Dots).
+
+-----
+
+\n<b>Honours</b>
+There are two Honour suits - the Winds and the Dragons. There are four Winds - North, South, East and West. There are four of each type (e.g. there are four West Wind tiles, four South Winds etc.). There are three types of Dragons - Red, White and Green, and again, there are four of each. The 1's and 9's in all suits are classed as Honours in some special hands.
+
+<b>Pons</b>
+A Pon (also known as a Pung) is a set of three identical tiles. A Pair can be turned into a Pon by either picking up another matching tile the turn after it has been discarded by another player (in which case, the Pon is 'open' or 'exposed') or by picking up the tile from the Wall (in which case, the Pon is 'concealed').
+
+-----
+
+<b>Kans</b>
+A Kan (also known as a Kong) follows the same rules as a Pon, except it is made up of four identical tiles. A side effect of having a Kan is that the tile in the Kan cannot be used in any other players' hand, as every tile of that type is taken by the Kan. This means concealed Kans, unlike concealed Pons, are separated as visible melds on the table but facing down so the other player do not know which tile it is. When a Kan is formed, an extra tile is drawn from the Wall to replace the tile 'lost' in the Kan.
+
+<b>Chis</b>
+A Chi (also known as a Chow) consists of a run of three tiles in the same suit (e.g. The 5, 6, and 7 of Characters). A Chi is worth zero points in most hands, however it is used in some hands and can be useful to complete the hand quickly. Unlike Pons and Kans, if the player wants to pickup a tile to form a Chi from the discard pile, they can only do it in such a way that will not disrupt the turn order e.g. Player 2 can only Chi a tile discarded by Player 1, not by Player 3 or 4.
+
+-----
+
+<b>Melds</b>
+A meld is simply an umbrella term for Pons, Kans and Chis. They can be open (aka visible to other players), concealed within your hand, or concealed in your melds (aka the tiles are visible to other players but not the tile faces).
+
+<b>Tenpai</b>
+Tenpai (also known as fishing) is when a player needs only one more tile to complete their hand, they announce they are Tenpai to the other players. This means that when anyone discards the tile that player wants they can pick it up and go Mahjong.
+
+<b>Going Mahjong</b>
+When a player has a completed winning hand, they call Mahjong and that game ends with their victory. The game then resets to begin another hand.
+
+-----
+
+<b><size=150%>How To Play</size></b>
+
+TODO: Rewrite how to play section
+
+-----
+
+<b><size=150%>Types of Hands</size></b>
+
+<b>Pons And Kans</b>
+This is made of four Pons/Kans (one of which can be replaced by a Chi) plus a pair, all of a single suit (plus winds and dragons).

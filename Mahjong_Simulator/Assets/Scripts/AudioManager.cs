@@ -40,8 +40,8 @@ public class AudioManager : MonoBehaviour {
                 GenerateNewShuffle();
             }
 
-            // Ignores Time.timeScale (so music still plays when game is paused)
-            yield return new WaitForSecondsRealtime(audioSource.clip.length);
+            // Wait until track has finished playing (ignoring audio pause when game is unfocused)
+            yield return new WaitWhile(() => audioSource.isPlaying || !Application.isFocused);
         }
     }
 
