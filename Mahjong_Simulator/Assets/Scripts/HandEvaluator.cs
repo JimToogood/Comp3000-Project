@@ -5,25 +5,29 @@ using System.Linq;
 
 public static class HandEvaluator {
     private static List<Meld> foundMelds = new();
+    private static List<Meld> totalMelds = new();
     private static List<MahjongTile> foundPair = new();
 
 
     public static bool IsWinningHand(Player player) {
-        Debug.Log("Checking for winning hand...");
         foundMelds.Clear();
+        totalMelds.Clear();
         foundPair.Clear();
 
         if (IsStandardHand(player)) {
             // Checks for standard hands go here
             if (PonsAndKans(player)) {
-                Debug.Log("!! WINNING HAND FOUND !!");
+                Debug.Log("!! WINNING HAND FOUND (PonsAndKans) !!");
                 return true;
             }
         }
 
         // Checks for non-standard hands go here
+        if (Knitting(player)) {
+            Debug.Log("!! WINNING HAND FOUND (Knitting) !!");
+            return true;
+        }
 
-        Debug.Log("Winning hand not found.");
         return false;
     }
     
@@ -44,17 +48,27 @@ public static class HandEvaluator {
         for (int i = 0; i < tiles.Count; i++) {
             for (int j = i + 1; j < tiles.Count; j++) {
                 // Only check matching pairs
-                if (!tiles[i].IsSameTile(tiles[j])) { continue; }
+                if (!tiles[i].IsSameTile(tiles[j]) || tiles[i].id == tiles[j].id) { continue; }
 
+                MahjongTile tileA = tiles[i];
+                MahjongTile tileB = tiles[j];
+
+                // Remove found pair from remaining tiles
                 List<MahjongTile> remaining = new List<MahjongTile>(tiles);
-                remaining.RemoveAt(j);
-                remaining.RemoveAt(i);
+                remaining.Remove(tileA);
+                remaining.Remove(tileB);
 
                 List<Meld> currentFoundMelds = new();
 
+                // Try to form melds from remaining tiles
                 if (CanFormMelds(remaining, meldsNeeded, currentFoundMelds)) {
                     foundMelds = new List<Meld>(currentFoundMelds);
-                    foundPair = new List<MahjongTile>{ tiles[i], tiles[j] }; 
+                    foundPair = new List<MahjongTile>{ tileA, tileB };
+                    
+                    // Combine players melds with found melds to get all melds
+                    totalMelds = new List<Meld>(player.melds);
+                    totalMelds.AddRange(foundMelds);
+
                     return true;
                 }
             }
@@ -63,12 +77,29 @@ public static class HandEvaluator {
         return false;
     }
 
-    private static bool IsTenpai(Player player) {
+    public static bool IsTenpai(Player player) {
         /* Tenpai:
         When a player is one tile away from winning (also known as fishing)
         */
 
-        // TODO: Tenpai check logic here
+        List<MahjongTile> uniqueTiles = TileSpawner.CreateFullTileSet()
+            .GroupBy(t => t.id)
+            .Select(g => g.First())
+            .ToList();
+
+        // Check every unique tile to see if adding it creates a winning hand
+        foreach (MahjongTile tile in uniqueTiles) {
+            player.hand.Add(tile);
+
+            bool isWin = IsWinningHand(player);
+
+            player.hand.Remove(tile);
+
+            if (isWin) {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -79,15 +110,11 @@ public static class HandEvaluator {
         Four Pons/Kans (one of which can be replaced by a Chi) plus a pair, all of a single suit (plus winds and dragons)
         */
 
-        // Combine player's melds with any melds found in Standard Hand check
-        List<Meld> allMelds = new List<Meld>(player.melds);
-        allMelds.AddRange(foundMelds);
-
-        if (allMelds.Count != 4) { return false; }      // If total melds isnt 4, hand cant be valid
-        if (allMelds.Count(m => m.type == CallType.Chi) > 1) { return false; }  // If hand has more than 1 Chi, hand cant be valid
+        if (totalMelds.Count != 4) { return false; }        // If total melds isnt 4, hand cant be valid
+        if (totalMelds.Count(m => m.type == CallType.Chi) > 1) { return false; }    // If hand has more than 1 Chi, hand cant be valid
 
         List<MahjongTile> allTiles = new();
-        foreach (Meld meld in allMelds) {
+        foreach (Meld meld in totalMelds) {
             allTiles.AddRange(meld.tiles);
         }
 
@@ -95,6 +122,47 @@ public static class HandEvaluator {
 
         // Check all tiles are the same suit (plus winds and dragons)
         return IsSingleSuitExcludingHonours(allTiles);
+    }
+
+    private static bool Knitting(Player player) {
+        /* Knitting:
+        Four sets of three tiles, each set contains the same numbered tile from every suit (e.g. Three of Bamboo,
+        Three of Dots and Three of Characters) plus a Pair, which follows the same rules as the sets, except it
+        is missing any one of the three suits
+        */
+
+        if (totalMelds.Count > 0) { return false; }     // Knitting has no melds
+
+        List<MahjongTile> tiles = new List<MahjongTile>(player.hand);
+
+        // Group tiles by number
+        List<IGrouping<int, MahjongTile>> groups = tiles.GroupBy(t => t.number).ToList();
+
+        int tripleSets = 0;
+        int pairSets = 0;
+
+        foreach (IGrouping<int, MahjongTile> group in groups) {
+            List<MahjongTile> groupTiles = group.ToList();
+
+            if (!groupTiles.All(t => t.IsNumbered())) { return false; }     // Knitting has no winds or dragons
+
+            List<TileSuit> suits = groupTiles
+                .Select(t => t.suit)
+                .Distinct()
+                .ToList();
+            
+            if (groupTiles.Count == 3) {
+                if (suits.Count != 3) { return false; }
+                tripleSets++;
+            } else if (groupTiles.Count == 2) {
+                if (suits.Count != 2) { return false; }
+                pairSets++;
+            } else {
+                return false;
+            }
+        }
+
+        return tripleSets == 4 && pairSets == 1;
     }
 
 
@@ -158,6 +226,16 @@ public static class HandEvaluator {
         // Checks to see if tiles only contains tiles of the same suit (excluding winds and dragons)
         List<TileSuit> suits = tiles
             .Where(t => t.IsNumbered())
+            .Select(t => t.suit)
+            .Distinct()
+            .ToList();
+        
+        return suits.Count <= 1;
+    }
+
+    private static bool IsSingleSuitIncludingHonours(List<MahjongTile> tiles) {
+        // Checks to see if tiles only contains tiles of the same suit
+        List<TileSuit> suits = tiles
             .Select(t => t.suit)
             .Distinct()
             .ToList();

@@ -36,4 +36,15 @@ public class MahjongTile {
 
         return number == otherTile.number + offset;
     }
+
+    public string GetDisplayName() {
+        return suit switch {
+            TileSuit.Characters => $"{number} Characters",
+            TileSuit.Bamboo => $"{number} Bamboo",
+            TileSuit.Dots => $"{number} Dots",
+            TileSuit.Winds => $"{wind} Wind",
+            TileSuit.Dragons => $"{dragon} Dragon",
+            _ => "Unknown Tile"
+        };
+    }
 }

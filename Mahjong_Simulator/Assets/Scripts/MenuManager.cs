@@ -7,18 +7,32 @@ using TMPro;
 
 
 public class MenuManager : MonoBehaviour {
+    // Set instance so menu manager can be called in other classes
+    public static MenuManager Instance { get; private set; }
+    void Awake() { Instance = this; }
+
     [SerializeField] private GameObject menuUI;
     [SerializeField] private GameObject mainMenu;
     [SerializeField] private GameObject pauseMenu;
     [SerializeField] private GameObject rulesMenu;
+    [SerializeField] private GameObject callMenu;
+    [SerializeField] private GameObject winMenu;
+
     [SerializeField] private CanvasGroup fadePanel;
     [SerializeField] private TMP_Text rulesText;
     [SerializeField] private TMP_Text rulesTitleText;
+    [SerializeField] private TMP_Text callText;
+    [SerializeField] private TMP_Text playerText;
+    [SerializeField] private TMP_Text winText;
+
+    [SerializeField] private TMP_Text[] ponButtonTexts;
+    [SerializeField] private TMP_Text[] chiButtonTexts;
     
     [SerializeField] private Camera gameCamera;
     [SerializeField] private Camera menuCamera;
 
     private bool gameStarted = false;
+    private bool callMenuOpen = false;
     private List<string> rulesPages = new();
     private int currentPage = 0;
 
@@ -27,8 +41,11 @@ public class MenuManager : MonoBehaviour {
         mainMenu.SetActive(true);
         pauseMenu.SetActive(false);
         rulesMenu.SetActive(false);
+        callMenu.SetActive(false);
+        winMenu.SetActive(false);
 
         menuUI.SetActive(true);
+        playerText.enabled = false;
         menuCamera.enabled = true;
         gameCamera.enabled = false;
 
@@ -42,26 +59,101 @@ public class MenuManager : MonoBehaviour {
             if (rulesMenu.activeSelf) {
                 BackButton();
             } else if (gameStarted) {
-                if (menuUI.activeSelf) {
-                    PauseMenuClose();
+                if (menuUI.activeSelf && !callMenu.activeSelf) {
+                    PauseMenuToggle(false);
                 } else {
-                    PauseMenuOpen();
+                    PauseMenuToggle(true);
                 }
+            }
+        }
+
+        // TODO: DELETE THIS DEBUG/TESTING INPUT 
+        if (Input.GetKeyDown(KeyCode.E)) {
+            if (Time.timeScale == 10.0f) {
+                Time.timeScale = 1.0f;
+            } else {
+                Time.timeScale = 10.0f;
             }
         }
     }
 
-    public void PauseMenuOpen() {
-        GameManager.Instance.TogglePause(true);
+    public void OpenCallMenu(string callString) {
         menuUI.SetActive(true);
+        playerText.enabled = false;
+        pauseMenu.SetActive(false);
+
+        callMenu.SetActive(true);
+        callMenuOpen = true;
+        callText.text = callString;
     }
 
-    public void PauseMenuClose() {
-        GameManager.Instance.TogglePause(false);
-        menuUI.SetActive(false);
+    private void CloseCallMenu() {
+        if (gameStarted) {
+            Debug.Log("Closing call menu...");
+            menuUI.SetActive(false);
+            playerText.enabled = true;
+            pauseMenu.SetActive(true);
+        }
+
+        callMenu.SetActive(false);
+        callMenuOpen = false;
+    }
+
+    public void SetPlayerText(int playerIndex) {
+        playerText.text = $"Player {playerIndex}";
+    }
+
+    public void ShowWinScreen(int playerIndex) {
+        if (playerIndex == -1) {
+            winText.text = "It's a draw!";
+        } else {
+            winText.text = $"Player {playerIndex + 1} wins!";
+        }
+
+        gameStarted = false;
+
+        menuUI.SetActive(true);
+        pauseMenu.SetActive(false);
+        winMenu.SetActive(true);
+        playerText.enabled = false;
+    }
+
+
+    // -=-=- BUTTONS -=-=-
+    public void PonButton(int playerIndex) {
+        if (GameManager.Instance.TryPonKan(playerIndex)) {
+            CloseCallMenu();
+        } else {
+            StartCoroutine(FlashRed(ponButtonTexts[playerIndex]));
+        }
+    }
+
+    public void ChiButton(int playerIndex) {
+        if (GameManager.Instance.TryChi(playerIndex)) {
+            CloseCallMenu();
+        } else {
+            StartCoroutine(FlashRed(chiButtonTexts[playerIndex]));
+        }
+    }
+
+    public void DrawNextTileButton() {
+        GameManager.Instance.EndTurn();
+        CloseCallMenu();
+    }
+
+    public void PauseMenuToggle(bool toggle) {
+        GameManager.Instance.TogglePause(toggle);
+        if (!callMenuOpen) {
+            menuUI.SetActive(toggle);
+            playerText.enabled = !toggle;
+        } else {
+            pauseMenu.SetActive(toggle);
+            callMenu.SetActive(!toggle);
+        }
     }
 
     public void ReturnToMainMenuButton() {
+        // Unpause timeScale to allow fade animation to play
         Time.timeScale = 1.0f;
         StartCoroutine(FadeAndReload());
     }
@@ -119,6 +211,8 @@ public class MenuManager : MonoBehaviour {
         rulesTitleText.text = $"Rules {currentPage + 1}/{rulesPages.Count}";
     }
 
+
+    // -=-=- HELPERS -=-=-
     private IEnumerator StartGameTransition() {
         // Fade out to black
         yield return StartCoroutine(Fade(0.0f, 1.0f));
@@ -128,6 +222,7 @@ public class MenuManager : MonoBehaviour {
         pauseMenu.SetActive(true);
 
         menuUI.SetActive(false);
+        playerText.enabled = true;
         menuCamera.enabled = false;
         gameCamera.enabled = true;
         GameManager.Instance.StartGame();
@@ -166,6 +261,14 @@ public class MenuManager : MonoBehaviour {
         fadePanel.blocksRaycasts = false;
     }
 
+    private IEnumerator FlashRed(TMP_Text buttonText) {
+        buttonText.color = Color.red;
+
+        yield return new WaitForSeconds(0.5f);
+
+        buttonText.color = Color.white;
+    }
+
     private void LoadRulesTxt() {
         TextAsset textAsset = Resources.Load<TextAsset>("rule_book");
 
@@ -174,6 +277,7 @@ public class MenuManager : MonoBehaviour {
             return;
         }
 
+        // Every "-----" starts a new page
         string[] splitText = textAsset.text.Split(new[]{"-----"}, System.StringSplitOptions.RemoveEmptyEntries);
 
         foreach (string page in splitText) {

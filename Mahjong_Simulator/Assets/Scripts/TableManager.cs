@@ -184,10 +184,10 @@ public class TableManager : MonoBehaviour {
     }
 
     public void MoveCamera(int seat) {
-        StartCoroutine(MoveCameraRoutine(seat));
+        StartCoroutine(MoveCameraSeatRoutine(seat));
     }
 
-    private IEnumerator MoveCameraRoutine(int seat) {
+    private IEnumerator MoveCameraSeatRoutine(int seat) {
         float angle = seat * 90.0f;
         float time = 0.0f;
         float duration = 0.6f;
@@ -197,6 +197,36 @@ public class TableManager : MonoBehaviour {
 
         Vector3 endPos = Quaternion.Euler(0.0f, angle, 0.0f) * cameraBasePos;
         Quaternion endRot = Quaternion.Euler(cameraBaseTilt, angle + 180.0f, 0.0f);
+
+        // Animate smooth movement between start and end
+        while (time < duration) {
+            float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
+
+            mainCamera.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
+            mainCamera.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
+
+            time += Time.deltaTime;
+            yield return null;
+        }
+
+        // Snap to end pos after animation to avoid drift
+        mainCamera.transform.localPosition = endPos;
+        mainCamera.transform.localRotation = endRot;
+    }
+
+    public void TopViewCamera() {
+        StartCoroutine(TopViewCameraRoutine());
+    }
+
+    private IEnumerator TopViewCameraRoutine() {
+        float time = 0.0f;
+        float duration = 0.6f;
+        
+        Vector3 startPos = mainCamera.transform.localPosition;
+        Quaternion startRot = mainCamera.transform.localRotation;
+
+        Vector3 endPos = new Vector3(0.0f, 5.3f, 0.0f);
+        Quaternion endRot = Quaternion.Euler(90.0f, 0.0f, 0.0f);
 
         // Animate smooth movement between start and end
         while (time < duration) {

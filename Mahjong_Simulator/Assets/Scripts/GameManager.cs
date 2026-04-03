@@ -38,56 +38,47 @@ public class GameManager : MonoBehaviour {
     }
 
     public void StartGame() {
-        List<MahjongTile> tiles = new();
-        int tileIndex = 0;
+        // Create tiles and shuffle
+        List<MahjongTile> tiles = TileSpawner.CreateFullTileSet();
+        Shuffle(tiles);
 
-        while (true) {
-            // Create tiles and shuffle
-            tiles = TileSpawner.CreateFullTileSet();
-            Shuffle(tiles);
+        // Create players
+        players = new List<Player>();
+        for (int i = 0; i < 4; i++) {
+            players.Add(new Player(i));
+        }
 
-            // Create players
-            players = new List<Player>();
-            for (int i = 0; i < 4; i++) {
-                players.Add(new Player(i));
-            }
-
-            // Deal hands to players (13 tiles each)
-            tileIndex = 0;
-            for (int j = 0; j < 13; j++) {
-                foreach (Player player in players) {
-                    player.hand.Add(tiles[tileIndex]);
-                    tileIndex++;
-                }
-            }
-
-            if (!debugMode) { break; }
-
-            // CURRENT DEBUG SCENARIO: Check if player 0 has a concealed Kan
-            bool found = false;
+        if (debugMode) {
             Player testPlayer = players[0];
 
-            foreach (MahjongTile tile in testPlayer.hand) {
-                int count = 0;
-                foreach (MahjongTile t in testPlayer.hand) {
-                    if (t.IsSameTile(tile)) { count++; }
-                }
-
-                if (count == 4) {
-                    Debug.Log("!! DEBUG SCENARIO FOUND !!");
-                    found = true;
-                    break;
-                }
+            // CURRENT DEBUG SCENARIO: Player 0 one tile away from winning Knitting
+            for (int i = 1; i < 5; i++) {
+                AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, i);
+                AddTileToHand(tiles, testPlayer.hand, TileSuit.Bamboo, i);
+                AddTileToHand(tiles, testPlayer.hand, TileSuit.Dots, i);
             }
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 5);
 
-            if (found) { break; }
+            if (testPlayer.hand.Count != 13) {
+                Debug.LogError("Incorrect debug player hand count.");
+                MenuManager.Instance.QuitButton();
+            }
+        }
+
+        // Deal hands to players (13 tiles each)
+        for (int j = 0; j < 13; j++) {
+            foreach (Player player in players) {
+                // Skip player 0 if in debug mode
+                if (debugMode && player.seat == 0) { continue; }
+
+                MahjongTile tile = tiles[0];
+                player.hand.Add(tile);
+                tiles.RemoveAt(0);
+            }
         }
 
         // Add remaining tiles to the wall
-        wall = new Queue<MahjongTile>();
-        for (int i = tileIndex; i < tiles.Count; i++) {
-            wall.Enqueue(tiles[i]);
-        }
+        wall = new Queue<MahjongTile>(tiles);
 
         TableManager.Instance.SetupTable(players, wall);
 
@@ -97,6 +88,7 @@ public class GameManager : MonoBehaviour {
 
     private void StartTurn(bool drawTile) {
         TableManager.Instance.MoveCamera(currentPlayerIndex);
+        MenuManager.Instance.SetPlayerText(currentPlayerIndex + 1);
 
         Debug.Log($"Player {currentPlayerIndex} turn begins");
 
@@ -106,7 +98,7 @@ public class GameManager : MonoBehaviour {
         waitingForDiscard = true;
     }
 
-    private void EndTurn() {
+    public void EndTurn() {
         Player currentPlayer = players[currentPlayerIndex];
 
         TableManager.Instance.RefreshPlayerVisuals(currentPlayer);
@@ -130,6 +122,7 @@ public class GameManager : MonoBehaviour {
     private void DrawTile(Player player) {
         if (wall.Count <= 0) {
             Debug.Log("Wall is empty");
+            EndGame(null);
             return;
         }
 
@@ -143,7 +136,10 @@ public class GameManager : MonoBehaviour {
         TableManager.Instance.AnimateDraw(player, currentDrawnTile);
 
         // Check if new tile allows player to win
-        HandEvaluator.IsWinningHand(player);
+        if (HandEvaluator.IsWinningHand(player)) {
+            EndGame(player);
+            return;
+        }
 
         if (CheckKanUpgrade(player, currentDrawnTile)) { return; }
         if (CheckConcealedKan(player)) { return; }
@@ -157,73 +153,55 @@ public class GameManager : MonoBehaviour {
         lastDiscardedTile = tile;
 
         TableManager.Instance.AnimateDiscard(tile, currentDrawnTile);
+        TableManager.Instance.RefreshPlayerVisuals(player);
 
         waitingForDiscard = false;
 
-        CheckForCalls();
+        CheckRon();
     }
-    
-    private void CheckForCalls() {
-        //Debug.Log($"Checking for calls...");
-        Player discardingPlayer = players[currentPlayerIndex];
 
-        // Check every player except player who just discarded
-        for (int i = 1; i < players.Count; i++) {
-            int seatToCheck = (currentPlayerIndex + i) % players.Count;
-            Player playerToCheck = players[seatToCheck];
+    public bool TryPonKan(int playerIndex) {
+        Player player = players[playerIndex];
 
-            // Find how many tiles matching the discard that the player has in their hand
-            int matchCount = 0;
-            foreach (MahjongTile tile in playerToCheck.hand) {
-                if (tile.IsSameTile(lastDiscardedTile)) {
-                    matchCount++;
-                }
+        int matchingTiles = player.hand.Count(t => t.IsSameTile(lastDiscardedTile));
+
+        if (matchingTiles >= 2) {
+            if (matchingTiles == 3) {
+                player.pendingCall = CallType.Kan;
+                Debug.Log($"Player {playerIndex} can Kan tile {lastDiscardedTile.id}");
+            } else {
+                player.pendingCall = CallType.Pon;
+                Debug.Log($"Player {playerIndex} can Pon tile {lastDiscardedTile.id}");
             }
 
-            // If player has 3 or more identical tiles, then they can Kan
-            if (matchCount >= 3) {
-                playerToCheck.pendingCall = CallType.Kan;
-                playerToCheck.callTile = lastDiscardedTile;
+            player.callTile = lastDiscardedTile;
 
-                TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
+            ResolveCall(player, null);
+            return true;
+        }
 
-                Debug.Log($"Player {seatToCheck} can Kan tile {playerToCheck.callTile.id}");
-                
-                // TODO: Change this automatic call to player choice
-                ResolveCall(playerToCheck, null);
-                return;
-            }
-            // If player has 2 or more identical tiles, then they can Pon
-            else if (matchCount == 2) {
-                playerToCheck.pendingCall = CallType.Pon;
-                playerToCheck.callTile = lastDiscardedTile;
+        return false;
+    }
 
-                TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
+    public bool TryChi(int playerIndex) {
+        Player player = players[playerIndex];
+        int nextPlayerIndex = (currentPlayerIndex + 1) % players.Count;
 
-                Debug.Log($"Player {seatToCheck} can Pon tile {playerToCheck.callTile.id}");
+        if (playerIndex == nextPlayerIndex) {
+            List<MahjongTile> chiTiles = GetChiTiles(player, lastDiscardedTile);
 
-                ResolveCall(playerToCheck, null);
-                return;
-            }
-            // If player is next in turn order, check if they can Chi
-            else if (i == 1) {
-                List<MahjongTile> chiTiles = GetChiTiles(playerToCheck, lastDiscardedTile);
+            if (chiTiles != null) {
+                player.pendingCall = CallType.Chi;
+                Debug.Log($"Player {playerIndex} can Chi tile {lastDiscardedTile.id}");
 
-                if (chiTiles != null) {
-                    playerToCheck.pendingCall = CallType.Chi;
-                    playerToCheck.callTile = lastDiscardedTile;
+                player.callTile = lastDiscardedTile;
 
-                    TableManager.Instance.RefreshPlayerVisuals(discardingPlayer);
-                    //Debug.Log($"Player {seatToCheck} can Chi tile {playerToCheck.callTile.id}");
-
-                    ResolveCall(playerToCheck, chiTiles);
-                    return;
-                }
+                ResolveCall(player, chiTiles);
+                return true;
             }
         }
 
-        Debug.Log($"No calls found. Ending turn...");
-        EndTurn();
+        return false;
     }
 
     private void ResolveCall(Player player, List<MahjongTile> chiTiles) {
@@ -282,7 +260,37 @@ public class GameManager : MonoBehaviour {
         player.callTile = null;
         player.pendingCall = null;
 
+        if (HandEvaluator.IsWinningHand(player)) {
+            EndGame(player);
+            return;
+        }
+
         StartTurn(isKan);   // If call is a Kan, draw a Kan tile, else don't draw a tile
+    }
+
+    private void CheckRon() {
+        for (int i = 1; i < players.Count; i++) {
+            int playerIndex = (currentPlayerIndex + i) % players.Count;
+            Player currentPlayer = players[playerIndex];
+
+            currentPlayer.hand.Add(lastDiscardedTile);
+
+            if (HandEvaluator.IsWinningHand(currentPlayer)) {
+                TableManager.Instance.AnimateDraw(currentPlayer, lastDiscardedTile);
+
+                EndGame(currentPlayer);
+                return;
+            } else {
+                currentPlayer.hand.Remove(lastDiscardedTile);
+            }
+        }
+
+        // If no Ron found, proceed to call menu
+        Debug.Log("No Ron found.");
+        TableManager.Instance.TopViewCamera();
+        MenuManager.Instance.OpenCallMenu(
+            $"Player {currentPlayerIndex + 1} discarded {lastDiscardedTile.GetDisplayName()}"
+        );
     }
 
     private bool CheckKanUpgrade(Player player, MahjongTile tile) {
@@ -337,6 +345,33 @@ public class GameManager : MonoBehaviour {
         return false;
     } 
 
+    private void AddTileToHand(
+        List<MahjongTile> tiles, List<MahjongTile> hand, TileSuit suit,
+        int number = 0, WindType wind = WindType.None, DragonType dragon = DragonType.None, 
+        int count = 1
+    ) {
+        for (int i = 0; i < count; i++) {
+            int index;
+            if (wind == WindType.None && dragon == DragonType.None) {
+                index = tiles.FindIndex(t => t.suit == suit && t.number == number);
+            }
+            else if (wind == WindType.None) {
+                index = tiles.FindIndex(t => t.suit == suit && t.dragon == dragon);
+            }
+            else {
+                index = tiles.FindIndex(t => t.suit == suit && t.wind == wind);
+            }
+
+            if (index != -1) {
+                hand.Add(tiles[index]);
+                tiles.RemoveAt(index);
+            } else {
+                Debug.LogError($"Unable to find: {number} {suit} {wind} {dragon}.");
+                MenuManager.Instance.QuitButton();
+            }
+        }
+    }
+
     private static List<MahjongTile> GetChiTiles(Player player, MahjongTile tile) {
         // If tile is a wind or a dragon, it cannot Chi
         if (!tile.IsNumbered()) { return null; }
@@ -375,6 +410,20 @@ public class GameManager : MonoBehaviour {
             int j = Random.Range(0, i + 1);
 
             (tiles[i], tiles[j]) = (tiles[j], tiles[i]);
+        }
+    }
+
+    private void EndGame(Player winner) {
+        if (winner != null) {
+            Debug.Log($"Player {winner.seat} wins!");
+            
+            TableManager.Instance.MoveCamera(winner.seat);
+            MenuManager.Instance.ShowWinScreen(winner.seat);
+        } else {
+            Debug.Log("Its a draw!");
+
+            TableManager.Instance.TopViewCamera();
+            MenuManager.Instance.ShowWinScreen(-1);
         }
     }
 }
