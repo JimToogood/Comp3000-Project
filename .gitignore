@@ -1,6 +1,10 @@
 # Ignore macOS system files
 .DS_Store
 
+# Ignore release folders as they are too big to commit
+/MacOS Release/
+/Windows Release/
+
 # Standard Unity project gitignore settings
 [Ll]ibrary/
 [Tt]emp/
