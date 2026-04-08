@@ -12,9 +12,8 @@ public struct SeatLayout {
 public class GameManager : MonoBehaviour {
     // Set instance so game manager can be called in other classes
     public static GameManager Instance { get; private set; }
-    void Awake() { Instance = this; }
 
-    [SerializeField] private bool debugMode = false;
+    [SerializeField] private bool debugMode;
 
     private List<Player> players;
     private Queue<MahjongTile> wall;
@@ -25,16 +24,15 @@ public class GameManager : MonoBehaviour {
     private bool isPaused = true;
     private int currentPlayerIndex = 0;
     private bool waitingForDiscard = false;
-    
 
-    public void TogglePause(bool paused) {
-        isPaused = paused;
 
-        if (!isPaused) {
-            Time.timeScale = 1.0f;
-        } else {
-            Time.timeScale = 0.0f;
-        }
+    private void Awake() {
+        Instance = this;
+
+        #if !UNITY_EDITOR
+            // If not in the editor, force debugMode to be off
+            debugMode = false;
+        #endif
     }
 
     public void StartGame() {
@@ -51,14 +49,52 @@ public class GameManager : MonoBehaviour {
         if (debugMode) {
             Player testPlayer = players[0];
 
-            // CURRENT DEBUG SCENARIO: Player 0 one tile away from winning Knitting
-            for (int i = 1; i < 5; i++) {
+            // PonsAndKans
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 2, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 6, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dragons, dragon: DragonType.Green, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dragons, dragon: DragonType.Red, count: 2);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 4);
+
+            // Dragonfly
+            /*AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 1, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Bamboo, 3, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dots, 5, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dragons, dragon: DragonType.Green);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dragons, dragon: DragonType.Red);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dragons, dragon: DragonType.White);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 7);*/
+
+            // Windfly
+            /*AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 1, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Bamboo, 3, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Dots, 5, count: 3);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.North);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.South);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.East);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.West);*/
+
+            // Windy Chi
+            /*for (int i = 1; i < 4; i++) {
+                AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, i);
+                AddTileToHand(tiles, testPlayer.hand, TileSuit.Bamboo, i + 1);
+                AddTileToHand(tiles, testPlayer.hand, TileSuit.Dots, i + 2);
+            }
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.North);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.South);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.East);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Winds, wind: WindType.West);*/
+
+            // Knitting
+            /*for (int i = 1; i < 5; i++) {
                 AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, i);
                 AddTileToHand(tiles, testPlayer.hand, TileSuit.Bamboo, i);
                 AddTileToHand(tiles, testPlayer.hand, TileSuit.Dots, i);
             }
-            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 5);
+            AddTileToHand(tiles, testPlayer.hand, TileSuit.Characters, 5);*/
 
+            // Check to ensure test player has the correct tile count
             if (testPlayer.hand.Count != 13) {
                 Debug.LogError("Incorrect debug player hand count.");
                 MenuManager.Instance.QuitButton();
@@ -87,12 +123,13 @@ public class GameManager : MonoBehaviour {
     }
 
     private void StartTurn(bool drawTile) {
-        TableManager.Instance.MoveCamera(currentPlayerIndex);
-        MenuManager.Instance.SetPlayerText(currentPlayerIndex + 1);
-
-        Debug.Log($"Player {currentPlayerIndex} turn begins");
+        Debug.Log($"Player {currentPlayerIndex + 1} turn begins");
 
         Player currentPlayer = players[currentPlayerIndex];
+
+        MenuManager.Instance.SetPlayerText(currentPlayerIndex + 1);
+        TableManager.Instance.MoveCamera(currentPlayerIndex);
+        TableManager.Instance.ShowConcealedKans(currentPlayer);
 
         if (drawTile) { DrawTile(currentPlayer); }
         waitingForDiscard = true;
@@ -105,6 +142,16 @@ public class GameManager : MonoBehaviour {
 
         currentPlayerIndex = (currentPlayerIndex + 1) % players.Count;
         StartTurn(true);
+    }
+
+    public void TogglePause(bool paused) {
+        isPaused = paused;
+
+        if (!isPaused) {
+            Time.timeScale = 1.0f;
+        } else {
+            Time.timeScale = 0.0f;
+        }
     }
 
     public void OnTileClicked(TileView tileView) {
@@ -130,7 +177,7 @@ public class GameManager : MonoBehaviour {
         currentDrawnTile = wall.Dequeue();
         player.hand.Add(currentDrawnTile);
 
-        Debug.Log($"Player {player.seat} draws tile {currentDrawnTile.id}");
+        Debug.Log($"Player {player.seat + 1} draws tile {currentDrawnTile.id}");
 
         // Move drawn tile to above player's hand
         TableManager.Instance.AnimateDraw(player, currentDrawnTile);
@@ -141,12 +188,14 @@ public class GameManager : MonoBehaviour {
             return;
         }
 
-        if (CheckKanUpgrade(player, currentDrawnTile)) { return; }
-        if (CheckConcealedKan(player)) { return; }
+        if (!CheckKanUpgrade(player, currentDrawnTile)) {
+            CheckConcealedKan(player);
+        }
     }
 
     private void DiscardTile(Player player, MahjongTile tile) {
-        Debug.Log($"Player {player.seat} discards tile {tile.id}");
+        Debug.Log($"Player {player.seat + 1} discards tile {tile.id}");
+        AudioManager.Instance.PlayClick();
 
         player.hand.Remove(tile);
         player.discards.Add(tile);
@@ -168,10 +217,8 @@ public class GameManager : MonoBehaviour {
         if (matchingTiles >= 2) {
             if (matchingTiles == 3) {
                 player.pendingCall = CallType.Kan;
-                Debug.Log($"Player {playerIndex} can Kan tile {lastDiscardedTile.id}");
             } else {
                 player.pendingCall = CallType.Pon;
-                Debug.Log($"Player {playerIndex} can Pon tile {lastDiscardedTile.id}");
             }
 
             player.callTile = lastDiscardedTile;
@@ -192,7 +239,6 @@ public class GameManager : MonoBehaviour {
 
             if (chiTiles != null) {
                 player.pendingCall = CallType.Chi;
-                Debug.Log($"Player {playerIndex} can Chi tile {lastDiscardedTile.id}");
 
                 player.callTile = lastDiscardedTile;
 
@@ -218,14 +264,14 @@ public class GameManager : MonoBehaviour {
         // Calculate how many tiles need to be moved from players hand to players melds
         int tilesNeeded = 0;
         if (isKan) {
-            Debug.Log($"Player {player.seat} Kans tile {player.callTile.id}");
+            Debug.Log($"Player {player.seat + 1} Kans tile {player.callTile.id}");
             tilesNeeded = 3;
             newMeld.type = CallType.Kan;
         } else if (isChi) {
-            Debug.Log($"Player {player.seat} Chis tile {player.callTile.id}");
+            Debug.Log($"Player {player.seat + 1} Chis tile {player.callTile.id}");
             newMeld.type = CallType.Chi;
         } else {
-            Debug.Log($"Player {player.seat} Pons tile {player.callTile.id}");
+            Debug.Log($"Player {player.seat + 1} Pons tile {player.callTile.id}");
             tilesNeeded = 2;
             newMeld.type = CallType.Pon;
         }
@@ -286,7 +332,6 @@ public class GameManager : MonoBehaviour {
         }
 
         // If no Ron found, proceed to call menu
-        Debug.Log("No Ron found.");
         TableManager.Instance.TopViewCamera();
         MenuManager.Instance.OpenCallMenu(
             $"Player {currentPlayerIndex + 1} discarded {lastDiscardedTile.GetDisplayName()}"
@@ -302,7 +347,7 @@ public class GameManager : MonoBehaviour {
                 meld.tiles.Add(tile);
                 meld.type = CallType.Kan;
 
-                Debug.Log($"Player {player.seat} upgrades Pon to Kan with tile {tile.id}");
+                Debug.Log($"Player {player.seat + 1} upgrades Pon to Kan with tile {tile.id}");
                 TableManager.Instance.RefreshPlayerVisuals(player);
 
                 DrawTile(player);
@@ -333,8 +378,9 @@ public class GameManager : MonoBehaviour {
 
                 player.melds.Add(new Meld(new List<MahjongTile>(matchingTiles), CallType.Kan, true));
 
-                Debug.Log($"Player {player.seat} declares a Concealed Kan.");
+                Debug.Log($"Player {player.seat + 1} declares a Concealed Kan.");
                 TableManager.Instance.RefreshPlayerVisuals(player);
+                TableManager.Instance.ShowConcealedKans(player);
 
                 DrawTile(player);
                 waitingForDiscard = true;
@@ -343,7 +389,7 @@ public class GameManager : MonoBehaviour {
         }
 
         return false;
-    } 
+    }
 
     private void AddTileToHand(
         List<MahjongTile> tiles, List<MahjongTile> hand, TileSuit suit,
@@ -370,6 +416,14 @@ public class GameManager : MonoBehaviour {
                 MenuManager.Instance.QuitButton();
             }
         }
+    }
+
+    public bool GetDebugMode() {
+        return debugMode;
+    }
+
+    public int GetCurrentPlayerIndex() {
+        return currentPlayerIndex;
     }
 
     private static List<MahjongTile> GetChiTiles(Player player, MahjongTile tile) {
@@ -413,9 +467,9 @@ public class GameManager : MonoBehaviour {
         }
     }
 
-    private void EndGame(Player winner) {
+    private static void EndGame(Player winner) {
         if (winner != null) {
-            Debug.Log($"Player {winner.seat} wins!");
+            Debug.Log($"Player {winner.seat + 1} wins!");
             
             TableManager.Instance.MoveCamera(winner.seat);
             MenuManager.Instance.ShowWinScreen(winner.seat);

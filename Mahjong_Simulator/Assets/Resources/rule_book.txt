@@ -33,7 +33,7 @@ A meld is simply an umbrella term for Pons, Kans and Chis. They can be open (aka
 -----
 
 <b>Tenpai</b>
-Tenpai (also known as fishing) is when a player needs only one more tile to complete their hand, they announce they are Tenpai to the other players. This means that when anyone discards the tile that player wants they can pick it up and go Mahjong.
+Tenpai (also known as fishing) is when a player only needs one more tile to complete their hand. When a player is in this state, if anyone discards the tile that the player wants they can pick it up and go Mahjong.
 
 <b>Going Mahjong</b>
 When a player has a completed winning hand, they call Mahjong and that game ends with their victory. The game then resets to begin another hand.
@@ -49,7 +49,7 @@ At the beginning of the game, all tiles are automatically shuffled and arranged 
 
 -----
 
-\nIf a player claims a discard tile to form a meld, that meld is placed face up, the previous turn order is interrupted, and the game continues from that player. If no player claims the discard, the turn passes to the next player in order, who draws a tile from the Wall and starts their turn. Whenever a player forms a Kan the game will automatically draw an additional tile from the Wall to maintain the correct number of tiles in their hand. The game then continues like this until a player wins by completing a valid winning hand, or the Wall runs out of tiles resulting in a draw.
+\nIf a player claims a discard tile to form a meld, that meld is placed face up, the previous turn order is interrupted, and the game continues from that player. If no player wishes to claims the discarded tile, the "Draw next Tile" button must be pressed, and the turn will pass onto the next player in order, who draws a tile from the Wall and starts their turn. Whenever a player forms a Kan the game will automatically draw an additional tile from the Wall to maintain the correct number of tiles in their hand. The game then continues like this until a player wins by completing a valid winning hand, or the Wall runs out of tiles resulting in a draw.
 
 -----
 
@@ -60,3 +60,14 @@ This is made of four Pons/Kans (one of which can be replaced by a Chi) plus a pa
 
 <b>Knitting</b>
 This hand is made of four sets of three tiles, where each set contains the same numbered tile from every suit (eg. Three of Bamboo, Three of Dots and Three of Characters) plus a pair, which follows the same rules as the sets, except with two suits instead of three.
+
+-----
+
+\n<b>Dragonfly</b>
+This hand consists of one of each Dragon, a Pon/Kan in all three suits plus a pair in any suit.
+
+<b>Windfly</b>
+This is made of one of each Wind plus a Pon/Kan in each of the three suits. One of the Winds must also be paired.
+
+<b>Windy Chi</b>
+This hand is made of one of each Wind plus a Chi in each of the three suits. One of the Winds must also be paired.

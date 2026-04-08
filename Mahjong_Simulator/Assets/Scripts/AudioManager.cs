@@ -4,24 +4,25 @@ using System.Collections.Generic;
 
 
 public class AudioManager : MonoBehaviour {
-    [SerializeField] private AudioSource audioSource;
+    public static AudioManager Instance { get; private set; }
+
+    [SerializeField] private AudioSource musicSource;
+    [SerializeField] private AudioSource sfxSource;
     [SerializeField] private List<AudioClip> backgroundMusic;
 
     private List<AudioClip> currentShuffle;
     private int currentIndex = 0;
 
-    private static AudioManager instance;
-
 
     private void Awake() {
         // Ensure only one instance exists
-        if (instance != null && instance != this) {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
 
         // Allow instance to persist through scene changes
-        instance = this;
+        Instance = this;
         DontDestroyOnLoad(gameObject);
     }
 
@@ -30,10 +31,14 @@ public class AudioManager : MonoBehaviour {
         StartCoroutine(LoopMusic());
     }
 
+    public void PlayClick() {
+        sfxSource.Play();
+    }
+
     private IEnumerator LoopMusic() {
         while (true) {
-            audioSource.clip = currentShuffle[currentIndex];
-            audioSource.Play();
+            musicSource.clip = currentShuffle[currentIndex];
+            musicSource.Play();
 
             currentIndex++;
             if (currentIndex >= currentShuffle.Count) {
@@ -41,7 +46,7 @@ public class AudioManager : MonoBehaviour {
             }
 
             // Wait until track has finished playing (ignoring audio pause when game is unfocused)
-            yield return new WaitWhile(() => audioSource.isPlaying || !Application.isFocused);
+            yield return new WaitWhile(() => musicSource.isPlaying || !Application.isFocused);
         }
     }
 
@@ -56,7 +61,7 @@ public class AudioManager : MonoBehaviour {
         }
 
         // Prevent last track of previous shuffle being the same as first track of next shuffle
-        if (audioSource.clip != null && currentShuffle[0] == audioSource.clip) {
+        if (musicSource.clip != null && currentShuffle[0] == musicSource.clip) {
             int j = Random.Range(1, currentShuffle.Count);
 
             (currentShuffle[0], currentShuffle[j]) = (currentShuffle[j], currentShuffle[0]);

@@ -6,6 +6,8 @@ using System.Linq;
 
 public class TableManager : MonoBehaviour {
     const float TILE_SPACING = 2.1f;
+    const float TILE_ANIMATION_LENGTH = 0.75f;
+    const float CAMERA_ANIMATION_LENGTH = 0.6f;
 
     // Set instance so table manager can be called in other classes
     public static TableManager Instance { get; private set; }
@@ -183,92 +185,111 @@ public class TableManager : MonoBehaviour {
         LayoutMelds(player);
     }
 
-    public void MoveCamera(int seat) {
-        StartCoroutine(MoveCameraSeatRoutine(seat));
-    }
+    public void ShowConcealedKans(Player player) {
+        IEnumerator ShowConcealedKansRoutine(Player player) {
+            // Wait for any tile animations to finish to avoid position drift
+            yield return new WaitForSeconds(TILE_ANIMATION_LENGTH);
 
-    private IEnumerator MoveCameraSeatRoutine(int seat) {
-        float angle = seat * 90.0f;
-        float time = 0.0f;
-        float duration = 0.6f;
-        
-        Vector3 startPos = mainCamera.transform.localPosition;
-        Quaternion startRot = mainCamera.transform.localRotation;
+            foreach (Meld meld in player.melds) {
+                if (meld.isConcealed) {
+                    MahjongTile tile = meld.tiles[2];
 
-        Vector3 endPos = Quaternion.Euler(0.0f, angle, 0.0f) * cameraBasePos;
-        Quaternion endRot = Quaternion.Euler(cameraBaseTilt, angle + 180.0f, 0.0f);
+                    // Rotate the tile to face the player
+                    Quaternion rot = tileViews[tile].transform.localRotation * Quaternion.Euler(90.0f, 0.0f, 0.0f);
+                    Vector3 pos = tileViews[tile].transform.localPosition;
+                    pos.y += 1.0f;
 
-        // Animate smooth movement between start and end
-        while (time < duration) {
-            float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
-
-            mainCamera.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
-            mainCamera.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
-
-            time += Time.deltaTime;
-            yield return null;
+                    MoveTile(tile, pos, rot);
+                }
+            }
         }
 
-        // Snap to end pos after animation to avoid drift
-        mainCamera.transform.localPosition = endPos;
-        mainCamera.transform.localRotation = endRot;
+        StartCoroutine(ShowConcealedKansRoutine(player));
+    }
+
+    public void MoveCamera(int seat) {
+        IEnumerator MoveCameraRoutine(int seat) {
+            float angle = seat * 90.0f;
+            float time = 0.0f;
+            
+            Vector3 startPos = mainCamera.transform.localPosition;
+            Quaternion startRot = mainCamera.transform.localRotation;
+
+            Vector3 endPos = Quaternion.Euler(0.0f, angle, 0.0f) * cameraBasePos;
+            Quaternion endRot = Quaternion.Euler(cameraBaseTilt, angle + 180.0f, 0.0f);
+
+            // Animate smooth movement between start and end
+            while (time < CAMERA_ANIMATION_LENGTH) {
+                float t = Mathf.SmoothStep(0.0f, 1.0f, time / CAMERA_ANIMATION_LENGTH);
+
+                mainCamera.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
+                mainCamera.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
+
+                time += Time.deltaTime;
+                yield return null;
+            }
+
+            // Snap to end pos after animation to avoid drift
+            mainCamera.transform.localPosition = endPos;
+            mainCamera.transform.localRotation = endRot;
+        }
+
+        StartCoroutine(MoveCameraRoutine(seat));
     }
 
     public void TopViewCamera() {
+        IEnumerator TopViewCameraRoutine() {
+            float time = 0.0f;
+            
+            Vector3 startPos = mainCamera.transform.localPosition;
+            Quaternion startRot = mainCamera.transform.localRotation;
+
+            Vector3 endPos = new Vector3(0.0f, 5.3f, 0.0f);
+            Quaternion endRot = Quaternion.Euler(90.0f, 0.0f, 0.0f);
+
+            // Animate smooth movement between start and end
+            while (time < CAMERA_ANIMATION_LENGTH) {
+                float t = Mathf.SmoothStep(0.0f, 1.0f, time / CAMERA_ANIMATION_LENGTH);
+
+                mainCamera.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
+                mainCamera.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
+
+                time += Time.deltaTime;
+                yield return null;
+            }
+
+            // Snap to end pos after animation to avoid drift
+            mainCamera.transform.localPosition = endPos;
+            mainCamera.transform.localRotation = endRot;
+        }
+    
         StartCoroutine(TopViewCameraRoutine());
     }
 
-    private IEnumerator TopViewCameraRoutine() {
-        float time = 0.0f;
-        float duration = 0.6f;
-        
-        Vector3 startPos = mainCamera.transform.localPosition;
-        Quaternion startRot = mainCamera.transform.localRotation;
-
-        Vector3 endPos = new Vector3(0.0f, 5.3f, 0.0f);
-        Quaternion endRot = Quaternion.Euler(90.0f, 0.0f, 0.0f);
-
-        // Animate smooth movement between start and end
-        while (time < duration) {
-            float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
-
-            mainCamera.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
-            mainCamera.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
-
-            time += Time.deltaTime;
-            yield return null;
-        }
-
-        // Snap to end pos after animation to avoid drift
-        mainCamera.transform.localPosition = endPos;
-        mainCamera.transform.localRotation = endRot;
-    }
-
     public void MoveTile(MahjongTile tile, Vector3 pos, Quaternion rot) {
-        StartCoroutine(MoveTileRoutine(tileViews[tile], pos, rot));
-    }
+        IEnumerator MoveTileRoutine(TileView tileView, Vector3 endPos, Quaternion endRot) {
+            float time = 0.0f;
 
-    private IEnumerator MoveTileRoutine(TileView tileView, Vector3 endPos, Quaternion endRot) {
-        float time = 0.0f;
-        float duration = 0.75f;
+            Vector3 startPos = tileView.gameObject.transform.localPosition;
+            Quaternion startRot = tileView.gameObject.transform.localRotation;
 
-        Vector3 startPos = tileView.gameObject.transform.localPosition;
-        Quaternion startRot = tileView.gameObject.transform.localRotation;
+            // Animate smooth movement between start and end
+            while (time < TILE_ANIMATION_LENGTH) {
+                float t = Mathf.SmoothStep(0.0f, 1.0f, time / TILE_ANIMATION_LENGTH);
 
-        // Animate smooth movement between start and end
-        while (time < duration) {
-            float t = Mathf.SmoothStep(0.0f, 1.0f, time / duration);
+                tileView.gameObject.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
+                tileView.gameObject.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
 
-            tileView.gameObject.transform.localPosition = Vector3.Lerp(startPos, endPos, t);
-            tileView.gameObject.transform.localRotation = Quaternion.Slerp(startRot, endRot, t);
+                time += Time.deltaTime;
+                yield return null;
+            }
 
-            time += Time.deltaTime;
-            yield return null;
+            // Snap to end pos after animation to avoid drift
+            tileView.gameObject.transform.localPosition = endPos;
+            tileView.gameObject.transform.localRotation = endRot;
         }
 
-        // Snap to end pos after animation to avoid drift
-        tileView.gameObject.transform.localPosition = endPos;
-        tileView.gameObject.transform.localRotation = endRot;
+        StartCoroutine(MoveTileRoutine(tileViews[tile], pos, rot));
     }
 
     private Vector3 GetDiscardPos() {

@@ -31,8 +31,8 @@ public class MahjongTile {
     }
 
     public bool IsSequentialTo(MahjongTile otherTile, int offset) {
-        if (!IsNumbered() || !otherTile.IsNumbered()) { return false; }
         if (suit != otherTile.suit) { return false; }
+        if (!IsNumbered() || !otherTile.IsNumbered()) { return false; }
 
         return number == otherTile.number + offset;
     }

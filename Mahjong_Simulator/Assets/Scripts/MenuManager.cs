@@ -9,7 +9,7 @@ using TMPro;
 public class MenuManager : MonoBehaviour {
     // Set instance so menu manager can be called in other classes
     public static MenuManager Instance { get; private set; }
-    void Awake() { Instance = this; }
+    private void Awake() { Instance = this; }
 
     [SerializeField] private GameObject menuUI;
     [SerializeField] private GameObject mainMenu;
@@ -17,6 +17,7 @@ public class MenuManager : MonoBehaviour {
     [SerializeField] private GameObject rulesMenu;
     [SerializeField] private GameObject callMenu;
     [SerializeField] private GameObject winMenu;
+    [SerializeField] private GameObject playerMenu;
 
     [SerializeField] private CanvasGroup fadePanel;
     [SerializeField] private TMP_Text rulesText;
@@ -24,6 +25,7 @@ public class MenuManager : MonoBehaviour {
     [SerializeField] private TMP_Text callText;
     [SerializeField] private TMP_Text playerText;
     [SerializeField] private TMP_Text winText;
+    [SerializeField] private TMP_Text viewDiscardText;
 
     [SerializeField] private TMP_Text[] ponButtonTexts;
     [SerializeField] private TMP_Text[] chiButtonTexts;
@@ -31,26 +33,36 @@ public class MenuManager : MonoBehaviour {
     [SerializeField] private Camera gameCamera;
     [SerializeField] private Camera menuCamera;
 
+    private CanvasGroup callMenuCanvasGroup;
     private bool gameStarted = false;
     private bool callMenuOpen = false;
+    private bool cameraAtCentre = false;
     private List<string> rulesPages = new();
     private int currentPage = 0;
+    private bool debugMode = false;
 
 
     private void Start() {
+        if (GameManager.Instance.GetDebugMode()) {
+            debugMode = true;
+        }
+
+        callMenuCanvasGroup = callMenu.GetComponent<CanvasGroup>();
+
         mainMenu.SetActive(true);
         pauseMenu.SetActive(false);
         rulesMenu.SetActive(false);
         callMenu.SetActive(false);
         winMenu.SetActive(false);
+        playerMenu.SetActive(false);
 
         menuUI.SetActive(true);
-        playerText.enabled = false;
         menuCamera.enabled = true;
         gameCamera.enabled = false;
 
         LoadRulesTxt();
 
+        // Fade in from black on application open
         StartCoroutine(Fade(1.0f, 0.0f));
     }
 
@@ -67,8 +79,8 @@ public class MenuManager : MonoBehaviour {
             }
         }
 
-        // TODO: DELETE THIS DEBUG/TESTING INPUT 
-        if (Input.GetKeyDown(KeyCode.E)) {
+        // Debug input to speed up game
+        if (Input.GetKeyDown(KeyCode.E) && debugMode) {
             if (Time.timeScale == 10.0f) {
                 Time.timeScale = 1.0f;
             } else {
@@ -79,19 +91,22 @@ public class MenuManager : MonoBehaviour {
 
     public void OpenCallMenu(string callString) {
         menuUI.SetActive(true);
-        playerText.enabled = false;
+        playerMenu.SetActive(false);
         pauseMenu.SetActive(false);
 
         callMenu.SetActive(true);
         callMenuOpen = true;
         callText.text = callString;
+
+        // Block buttons for a short while when call menu opens to avoid accidental presses
+        callMenuCanvasGroup.blocksRaycasts = false;
+        StartCoroutine(EnableButtonsAfterMouseRelease());
     }
 
     private void CloseCallMenu() {
         if (gameStarted) {
-            Debug.Log("Closing call menu...");
             menuUI.SetActive(false);
-            playerText.enabled = true;
+            playerMenu.SetActive(true);
             pauseMenu.SetActive(true);
         }
 
@@ -115,13 +130,14 @@ public class MenuManager : MonoBehaviour {
         menuUI.SetActive(true);
         pauseMenu.SetActive(false);
         winMenu.SetActive(true);
-        playerText.enabled = false;
+        playerMenu.SetActive(false);
     }
 
 
     // -=-=- BUTTONS -=-=-
     public void PonButton(int playerIndex) {
         if (GameManager.Instance.TryPonKan(playerIndex)) {
+            AudioManager.Instance.PlayClick();
             CloseCallMenu();
         } else {
             StartCoroutine(FlashRed(ponButtonTexts[playerIndex]));
@@ -130,6 +146,7 @@ public class MenuManager : MonoBehaviour {
 
     public void ChiButton(int playerIndex) {
         if (GameManager.Instance.TryChi(playerIndex)) {
+            AudioManager.Instance.PlayClick();
             CloseCallMenu();
         } else {
             StartCoroutine(FlashRed(chiButtonTexts[playerIndex]));
@@ -137,6 +154,7 @@ public class MenuManager : MonoBehaviour {
     }
 
     public void DrawNextTileButton() {
+        AudioManager.Instance.PlayClick();
         GameManager.Instance.EndTurn();
         CloseCallMenu();
     }
@@ -145,10 +163,22 @@ public class MenuManager : MonoBehaviour {
         GameManager.Instance.TogglePause(toggle);
         if (!callMenuOpen) {
             menuUI.SetActive(toggle);
-            playerText.enabled = !toggle;
+            playerMenu.SetActive(!toggle);
         } else {
             pauseMenu.SetActive(toggle);
             callMenu.SetActive(!toggle);
+        }
+    }
+
+    public void ViewDiscardButton() {
+        cameraAtCentre = !cameraAtCentre;
+
+        if (cameraAtCentre) {
+            TableManager.Instance.TopViewCamera();
+            viewDiscardText.text = "Back";
+        } else {
+            TableManager.Instance.MoveCamera(GameManager.Instance.GetCurrentPlayerIndex());
+            viewDiscardText.text = "View Discard Pile";
         }
     }
 
@@ -222,7 +252,7 @@ public class MenuManager : MonoBehaviour {
         pauseMenu.SetActive(true);
 
         menuUI.SetActive(false);
-        playerText.enabled = true;
+        playerMenu.SetActive(true);
         menuCamera.enabled = false;
         gameCamera.enabled = true;
         GameManager.Instance.StartGame();
@@ -235,7 +265,10 @@ public class MenuManager : MonoBehaviour {
     }
 
     private IEnumerator FadeAndReload() {
+        // Wait for fade to black to complete
         yield return StartCoroutine(Fade(0.0f, 1.0f));
+        
+        // Then reset scene
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
@@ -269,11 +302,19 @@ public class MenuManager : MonoBehaviour {
         buttonText.color = Color.white;
     }
 
+    private IEnumerator EnableButtonsAfterMouseRelease() {
+        yield return new WaitUntil(() => !Input.GetMouseButton(0));
+        yield return new WaitForSeconds(0.2f);
+
+        callMenuCanvasGroup.blocksRaycasts = true;
+    }
+
     private void LoadRulesTxt() {
         TextAsset textAsset = Resources.Load<TextAsset>("rule_book");
 
         if (textAsset == null) {
-            Debug.LogError($"Failed to load 'rules.txt'");
+            Debug.LogError($"Failed to load 'rule_book.txt'");
+            rulesPages.Add("Failed to load 'rule_book.txt'");
             return;
         }
 
