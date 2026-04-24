@@ -5,7 +5,7 @@ This is the repository my Comp3000 Dissertation Project "4-Player Mahjong Simula
 ---
 
 ## Assets  
-All textures, models, sounds, etc. used in this project are copyright-free and licensed for free use. All rights remain with their respective creators as listed below. This project does not claim ownership of any of the third-party assets cited.  
+All textures, models and sounds used in this project are copyright-free and licensed for free use. All rights remain with their respective creators as listed below. This project does not claim ownership of any of the third-party assets cited.  
 
 **Visual Assets Used:**  
 Tile textures by FluffyStuff (edited by me) - https://github.com/FluffyStuff/riichi-mahjong-tiles  
