@@ -21,7 +21,7 @@ Robert Schumann Op 15 No 7 Kinderszenen - https://imslp.org/wiki/Kinderszenen%2C
 ---
 
 ## How to run game  
-1) Go to [Releases](https://github.com/JimToogood/Comp3000-Project/releases)  
+1) Go to [Releases](https://github.com/JimToogood/Comp3000-Project/releases) and select the **latest** release  
 2) Download `MacOS_Release.zip` for the Mac version, or `Windows_Release.zip` for the Windows version  
 
 **MacOS Instructions**  
@@ -48,17 +48,16 @@ MahjongSimulator/
 ---
 
 ## How to open the project in Unity  
-1) Go to [Releases](https://github.com/JimToogood/Comp3000-Project/releases)  
-2) Download `Source code (zip)`  
-3) Unzip the downloaded .zip file  
-4) Inside the unzipped folder, locate the folder `Mahjong_Simulator`  
-5) Ensure following file structure exists inside the folder:  
+1) Go to [Releases](https://github.com/JimToogood/Comp3000-Project/releases) and select the **latest** release  
+2) Download `Unity_Project.zip`  
+3) Extract all the downloaded .zip file to unzip it into a folder  
+4) Ensure following file structure exists inside the folder:  
 ```text
 Mahjong_Simulator/  
  ├── Assets/  
  ├── Packages/  
  └── ProjectSettings/  
 ```
-6) Open Unity Hub, click `Add` -> `Add project from disk`, select the `Mahjong_Simulator` folder, open the project, and that's it!  
+5) Open Unity Hub, click `Add` -> `Add project from disk`, select the `Mahjong_Simulator` folder, open the project, and that's it!  
 
 **PLEASE NOTE:** The Unity project was created and developed using Unity 6000.2.13f1, and is the only version of Unity I recommend attempting to open the project with.  
