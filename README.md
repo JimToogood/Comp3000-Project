@@ -58,6 +58,7 @@ Mahjong_Simulator/
  ├── Packages/  
  └── ProjectSettings/  
 ```
-5) Open Unity Hub, click `Add` -> `Add project from disk`, select the `Mahjong_Simulator` folder, open the project, and that's it!  
+5) Open Unity Hub, click `Add` -> `Add project from disk`, select the `Mahjong_Simulator` folder, open the project  
+6) Once the project has opened, go to `Assets` -> `Scenes` then open `MainScene (Scene Asset)` and that's it!  
 
 **PLEASE NOTE:** The Unity project was created and developed using Unity 6000.2.13f1, and is the only version of Unity I recommend attempting to open the project with.  
